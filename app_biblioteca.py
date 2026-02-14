@@ -34,7 +34,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # 3. O resto do seu código continua normal abaixo...
-st.title("Classificação Automática") 
+st.title("Acervo de Cinema e Artes") 
 # etc...
 # --- 1. CONFIGURAÇÃO DA PÁGINA ---
 st.set_page_config(page_title="sVai Biblioteca Pro", layout="wide")
@@ -146,7 +146,7 @@ if api_key:
     except Exception: pass
 
 # --- 6. INTERFACE ---
-st.title("Inteligência Bibliográfica")
+st.title("Classificação via IA")
 tab1, tab2 = st.tabs(["🔍 Busca na Coleção", "🧠 Consultor Estratégico"])
 
 with tab1:
