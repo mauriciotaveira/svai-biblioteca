@@ -3,7 +3,39 @@ import pandas as pd
 import google.generativeai as genai
 import unicodedata
 import re
+import streamlit as st
+import pandas as pd
+# ... outros imports ...
 
+# 1. Se tiver esta linha, ela OBRIGATORIAMENTE fica aqui em cima:
+st.set_page_config(layout="wide", page_title="sVAI Metadados") 
+
+# 2. O CÓDIGO DE ESTILO (CSS) ENTRA AQUI (Logo após a configuração da página):
+st.markdown("""
+    <style>
+        /* Força o título (H1) a ficar pequeno (18px a 20px) */
+        h1 {
+            font-size: 1.5rem !important; 
+            font-weight: 600 !important;
+            margin-bottom: 0px !important;
+            padding-top: 0px !important;
+        }
+        
+        /* Remove o espaço branco gigante do topo */
+        .block-container {
+            padding-top: 1rem !important;
+            padding-bottom: 0rem !important;
+        }
+        
+        /* Esconde o menu de hambúrguer e rodapé do Streamlit (opcional, deixa mais limpo) */
+        [data-testid="stToolbar"] {visibility: hidden;}
+        footer {visibility: hidden;}
+    </style>
+""", unsafe_allow_html=True)
+
+# 3. O resto do seu código continua normal abaixo...
+st.title("Classificação Automática") 
+# etc...
 # --- 1. CONFIGURAÇÃO DA PÁGINA ---
 st.set_page_config(page_title="sVai Biblioteca Pro", layout="wide")
 
