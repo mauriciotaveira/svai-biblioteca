@@ -3,158 +3,169 @@ import pandas as pd
 import google.generativeai as genai
 import os
 
-# 1. CONFIGURAÇÃO DA PÁGINA (Layout Wide + Sidebar Escondida)
+# -----------------------------------------------------------------------------
+# 1. CONFIGURAÇÃO INSTITUCIONAL
+# -----------------------------------------------------------------------------
 st.set_page_config(
     page_title="Acervo Cinema & Artes", 
-    layout="wide", 
+    layout="wide",
     initial_sidebar_state="collapsed"
 )
 
-# 2. SEGURANÇA DA API
-api_key = None
-if "GOOGLE_API_KEY" in st.secrets:
-    api_key = st.secrets["GOOGLE_API_KEY"]
-    if api_key:
-        genai.configure(api_key=api_key)
+# -----------------------------------------------------------------------------
+# 2. SEGURANÇA E CONEXÃO (BACKEND)
+# -----------------------------------------------------------------------------
+api_status = False
+
+try:
+    if "GOOGLE_API_KEY" in st.secrets:
+        genai.configure(api_key=st.secrets["GOOGLE_API_KEY"])
         api_status = True
-else:
-    api_status = False 
+except Exception as e:
+    # Em produção, não mostramos o erro técnico, apenas registramos
+    api_status = False
 
-# 3. FUNÇÃO DE LEITURA "MULTIPLEX" (Tenta de tudo para ler o arquivo)
+# -----------------------------------------------------------------------------
+# 3. MOTOR DE DADOS (LEITURA BRASILEIRA NATIVA)
+# -----------------------------------------------------------------------------
 @st.cache_data
-def carregar_arquivo_final(file_buffer):
-    # Se for Excel (.xlsx), é direto e seguro
-    if file_buffer.name.endswith('.xlsx'):
-        try:
-            return pd.read_excel(file_buffer)
-        except Exception as e:
-            st.error(f"Erro ao ler Excel: {e}")
-            return None
-
-    # Se for CSV, vamos tentar as 3 combinações mais comuns
-    if file_buffer.name.endswith('.csv'):
+def carregar_dados_blindado(file_buffer=None):
+    """
+    Tenta ler arquivos CSV/Excel lidando com as peculiaridades
+    de codificação do Excel Brasileiro (Latin1 e Ponto e Vírgula).
+    """
+    # Se não foi passado arquivo, tenta achar na pasta (Deploy automático)
+    if file_buffer is None:
+        arquivos = [f for f in os.listdir() if f.endswith(('.csv', '.xlsx'))]
+        if not arquivos: return None
+        file_path = arquivos[0]
         
-        # TENTATIVA 1: Padrão Brasileiro (O mais provável)
+        # Leitura de Arquivo Local
         try:
-            file_buffer.seek(0) # Rebobina para o início
-            return pd.read_csv(file_buffer, sep=';', encoding='latin1', on_bad_lines='skip')
+            if file_path.endswith('.xlsx'):
+                return pd.read_excel(file_path)
+            else:
+                # Tenta padrão BR primeiro
+                return pd.read_csv(file_path, sep=';', encoding='latin1', on_bad_lines='skip')
         except:
-            pass # Se falhar, tenta o próximo silenciosamente
+            try:
+                # Fallback para padrão US
+                return pd.read_csv(file_path, sep=',', encoding='utf-8', on_bad_lines='skip')
+            except:
+                return None
 
-        # TENTATIVA 2: Padrão Internacional (Vírgula e UTF-8)
+    # Se foi passado um arquivo via Upload (Pelo usuário)
+    else:
         try:
-            file_buffer.seek(0) # Rebobina
-            return pd.read_csv(file_buffer, sep=',', encoding='utf-8', on_bad_lines='skip')
+            if file_buffer.name.endswith('.xlsx'):
+                return pd.read_excel(file_buffer)
+            else:
+                # O segredo do sucesso: Rebobinar e tentar Latin1
+                file_buffer.seek(0)
+                return pd.read_csv(file_buffer, sep=';', encoding='latin1', on_bad_lines='skip')
         except:
-            pass
-
-        # TENTATIVA 3: Motor Python (Mais lento, mas "adivinha" o separador)
-        try:
-            file_buffer.seek(0) # Rebobina
-            return pd.read_csv(file_buffer, sep=None, engine='python', encoding='latin1', on_bad_lines='skip')
-        except:
-            return None # Desiste se nada funcionar
-
+            try:
+                file_buffer.seek(0)
+                return pd.read_csv(file_buffer, sep=',', encoding='utf-8', on_bad_lines='skip')
+            except:
+                return None
     return None
 
-# 4. DESIGN CSS (Visual Limpo)
+# Tenta carga automática
+df = carregar_dados_blindado()
+
+# -----------------------------------------------------------------------------
+# 4. DESIGN SYSTEM (INTERFACE VISUAL)
+# -----------------------------------------------------------------------------
 st.markdown("""
     <style>
+    /* RESET GERAL */
     .stApp { background-color: #FFFFFF; color: #1A1A1A; font-family: 'Inter', sans-serif; }
-    [data-testid="stSidebar"] { display: none; } /* Esconde Sidebar */
-    section[data-testid="stSidebar"] { display: none; }
-    .block-container { padding-top: 1rem !important; padding-bottom: 3rem !important; max-width: 100% !important; }
-    [data-testid="stToolbar"], footer {visibility: hidden;}
+    
+    /* LAYOUT FULL SCREEN (Sem Sidebar) */
+    [data-testid="stSidebar"], section[data-testid="stSidebar"] { display: none; }
+    .block-container { padding-top: 2rem !important; max-width: 100% !important; }
+    [data-testid="stToolbar"], footer { visibility: hidden; }
 
-    /* INPUTS */
+    /* COMPONENTES DE UI */
     input[type="text"], textarea, .stMultiSelect div {
         color: #000000 !important;
-        background-color: #FAFAFA !important; 
-        border: 1px solid #ced4da !important;
+        background-color: #F8F9FA !important; 
+        border: 1px solid #DEE2E6 !important;
     }
     
-    /* BOTÕES */
+    /* BOTÕES PRIMÁRIOS */
     div.stButton > button {
         background-color: #000000 !important;
         color: #FFFFFF !important;
         border: none; border-radius: 6px; height: 50px;
         font-weight: 700; width: 100%; text-transform: uppercase; margin-top: 15px;
+        letter-spacing: 0.5px;
     }
-    div.stButton > button:hover { background-color: #333 !important; }
+    div.stButton > button:hover { 
+        background-color: #333333 !important; 
+        box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    }
 
-    /* MENU */
+    /* MENU DE NAVEGAÇÃO */
     div[role="radiogroup"] {
         background-color: #F1F3F5; padding: 8px; border-radius: 8px;
-        border: 1px solid #E9ECEF; display: flex; justify-content: center; margin-bottom: 30px;
+        display: flex; justify-content: center; margin-bottom: 30px;
     }
-    div[role="radiogroup"] label { color: #333 !important; font-weight: 600; }
     </style>
 """, unsafe_allow_html=True)
 
-# 5. LÓGICA DE ARQUIVOS AUTOMÁTICA
-df = None
-# Tenta achar arquivos na pasta automaticamente
-arquivos_pasta = [f for f in os.listdir() if f.endswith(('.csv', '.xlsx'))]
-if arquivos_pasta:
-    try:
-        arquivo_local = arquivos_pasta[0]
-        if arquivo_local.endswith('.csv'):
-            # Tenta ler o arquivo local com ponto e vírgula primeiro
-            try:
-                df = pd.read_csv(arquivo_local, sep=';', encoding='latin1', on_bad_lines='skip')
-            except:
-                df = pd.read_csv(arquivo_local, sep=',', encoding='utf-8', on_bad_lines='skip')
-        else:
-            df = pd.read_excel(arquivo_local)
-    except:
-        pass # Se falhar o automático, vai pedir upload manual
+# -----------------------------------------------------------------------------
+# 5. FRONTEND (APLICAÇÃO)
+# -----------------------------------------------------------------------------
 
-# 6. INTERFACE
-
-# CABEÇALHO
+# Cabeçalho Institucional
 st.markdown("""
-    <div style="text-align: left; margin-bottom: 25px;">
+    <div style="margin-bottom: 25px;">
         <h1 style='color: #000; font-size: 2.2rem; margin: 0; font-weight: 800;'>Acervo Cinema & Artes</h1>
         <p style='color: #666; font-size: 1.1rem; margin-top: 5px;'>Sistema Integrado de Referência</p>
     </div>
 """, unsafe_allow_html=True)
 
-# SE NÃO CARREGOU AUTOMÁTICO, PEDE UPLOAD
+# Tela de Carga (Se não houver dados)
 if df is None:
-    st.info("📂 Arraste seu arquivo (CSV ou Excel) abaixo.")
-    uploaded = st.file_uploader("Upload", type=['csv', 'xlsx'])
-    
+    st.info("📂 Base de dados não detectada. Por favor, carregue o arquivo mestre.")
+    uploaded = st.file_uploader("Carregar Acervo (.xlsx ou .csv)", type=['csv', 'xlsx'])
     if uploaded:
-        df = carregar_arquivo_final(uploaded)
+        df = carregar_dados_blindado(uploaded)
         if df is not None:
-            st.success("Arquivo lido com sucesso! O sistema vai reiniciar.")
+            st.success("Acervo indexado com sucesso.")
             st.rerun()
         else:
-            st.error("❌ Não foi possível ler o arquivo. Dica: Salve seu Excel como '.xlsx' em vez de CSV, é mais seguro.")
+            st.error("Erro crítico: Formato de arquivo incompatível.")
 
-# SE TUDO OK, MOSTRA O SISTEMA
+# Aplicação Principal
 if df is not None:
+    # Sanitização de Colunas
     df.columns = df.columns.str.strip()
     col_cat = next((c for c in df.columns if any(x in c.lower() for x in ['cat', 'assunto', 'area', 'genero'])), None)
 
-    # MENU
-    modo = st.radio("Menu", ["🔍 Pesquisa", "🤖 Consultor IA"], horizontal=True, label_visibility="collapsed")
+    # Navegação
+    modo = st.radio("Módulo", ["🔍 Pesquisa no Acervo", "🤖 Consultor IA"], horizontal=True, label_visibility="collapsed")
 
-    # --- PESQUISA ---
-    if modo == "🔍 Pesquisa":
-        cats_sel = []
-        if col_cat:
-            st.markdown("<p style='font-size: 0.8rem; font-weight: 700; color: #555; margin: 0;'>CATEGORIA</p>", unsafe_allow_html=True)
-            try:
-                opcoes = sorted(df[col_cat].dropna().astype(str).unique())
-                cats_sel = st.multiselect("Cats", opcoes, label_visibility="collapsed")
-            except: pass
+    # --- MÓDULO PESQUISA ---
+    if modo == "🔍 Pesquisa no Acervo":
+        col1, col2 = st.columns([1, 2])
         
-        st.write("") 
-        st.markdown("<p style='font-size: 0.8rem; font-weight: 700; color: #555; margin: 0;'>BUSCA</p>", unsafe_allow_html=True)
-        busca = st.text_input("Busca", placeholder="Título, autor...", label_visibility="collapsed")
+        with col1:
+            st.markdown("<p style='font-size:0.85rem; font-weight:700; color:#555; margin-bottom:5px;'>FILTRAR CATEGORIA</p>", unsafe_allow_html=True)
+            cats_sel = []
+            if col_cat:
+                try:
+                    opcoes = sorted(df[col_cat].dropna().astype(str).unique())
+                    cats_sel = st.multiselect("Filtro", opcoes, label_visibility="collapsed")
+                except: pass
+
+        with col2:
+            st.markdown("<p style='font-size:0.85rem; font-weight:700; color:#555; margin-bottom:5px;'>BUSCA TEXTUAL</p>", unsafe_allow_html=True)
+            busca = st.text_input("Busca", placeholder="Título, autor, ano...", label_visibility="collapsed")
         
-        if st.button("LOCALIZAR OBRA"):
+        if st.button("LOCALIZAR REGISTROS"):
             res = df.copy()
             if cats_sel and col_cat:
                 res = res[res[col_cat].astype(str).isin(cats_sel)]
@@ -163,30 +174,49 @@ if df is not None:
                 res = res[mask]
             
             if not res.empty:
-                st.success(f"Encontramos {len(res)} obras.")
+                st.success(f"{len(res)} obras encontradas.")
                 st.dataframe(res, use_container_width=True, hide_index=True)
             else:
-                st.warning("Nada encontrado.")
+                st.warning("Nenhum registro encontrado para os critérios informados.")
 
-    # --- IA ---
+    # --- MÓDULO CONSULTOR IA ---
     elif modo == "🤖 Consultor IA":
         if not api_status:
-            st.error("🔒 Configure a API Key no arquivo secrets.toml.")
+            st.error("🔒 **Serviço Indisponível:** A chave de API não foi configurada no servidor.")
+            st.info("Entre em contato com o administrador do sistema para configurar os 'Secrets'.")
         else:
-            st.info("💡 Pergunte ao Consultor sVAI.")
-            st.markdown("<p style='font-size: 0.8rem; font-weight: 700; color: #555; margin: 0;'>PERGUNTA</p>", unsafe_allow_html=True)
-            pergunta = st.text_input("Pergunta", placeholder="Ex: Livros sobre Cinema Novo...", label_visibility="collapsed")
+            st.info("💡 **Consultor sVAI:** Especialista virtual em Cinema e Artes.")
+            st.markdown("<p style='font-size:0.85rem; font-weight:700; color:#555; margin-bottom:5px;'>PERGUNTA DE REFERÊNCIA</p>", unsafe_allow_html=True)
+            pergunta = st.text_input("Pergunta", placeholder="Ex: Quais são os principais teóricos da montagem russa?", label_visibility="collapsed")
             
-            if st.button("ANALISAR"):
+            if st.button("ANALISAR COM IA"):
                 if not pergunta:
-                    st.warning("Digite uma pergunta.")
+                    st.warning("Por favor, insira uma pergunta.")
                 else:
-                    with st.spinner('Analisando...'):
+                    with st.spinner('Processando consulta...'):
                         try:
+                            # Contexto Otimizado (Segurança de Tokens)
                             txt_acervo = df.head(60).to_string(index=False)
+                            
+                            prompt = f"""
+                            Atue como um Bibliotecário Acadêmico Sênior.
+                            Pergunta do usuário: "{pergunta}"
+                            
+                            Base de dados local (amostra):
+                            ---
+                            {txt_acervo}
+                            ---
+                            
+                            Instruções:
+                            1. Responda em Português formal e acadêmico.
+                            2. Priorize obras que constam na base de dados acima.
+                            3. Se necessário, complemente com conhecimento externo clássico.
+                            """
+                            
                             model = genai.GenerativeModel('gemini-1.5-flash')
-                            resp = model.generate_content(f"Responda: '{pergunta}'. Base: \n{txt_acervo}")
-                            st.markdown("### 🤖 Resposta:")
+                            resp = model.generate_content(prompt)
+                            
+                            st.markdown("### 🤖 Parecer do Consultor:")
                             st.markdown(resp.text)
                         except Exception as e:
-                            st.error(f"Erro IA: {e}")
+                            st.error("Erro de comunicação com o serviço de IA. Tente novamente.")
