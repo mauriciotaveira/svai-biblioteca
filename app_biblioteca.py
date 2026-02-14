@@ -1,40 +1,80 @@
 import streamlit as st
 import pandas as pd
+import time
 
-# 1. CONFIGURAÇÃO DA PÁGINA (Layout Wide para ocupar tudo, mas limpo)
+# 1. CONFIGURAÇÃO DA PÁGINA
 st.set_page_config(page_title="Acervo Cinema & Artes", layout="wide")
 
-# 2. ESTILO CSS (Design Limpo e Menu Unificado)
+# --- DADOS DE EXEMPLO (PARA VOCÊ VER FUNCIONANDO) ---
+# Quando for usar seus dados reais, substitua isso pelo seu pd.read_csv(...)
+data_exemplo = {
+    'Titulo': ['A Estética da Fome', 'Montagem Soviética', 'O Som no Cinema', 'Antropologia Visual', 'História da Arte Moderna'],
+    'Autor': ['Glauber Rocha', 'Sergei Eisenstein', 'Michel Chion', 'Claudine de France', 'Gombrich'],
+    'Categoria': ['Cinema', 'Cinema', 'Audiovisual', 'Antropologia', 'Artes'],
+    'Ano': [1965, 1925, 1990, 1998, 1950]
+}
+df = pd.DataFrame(data_exemplo)
+
+# 2. ESTILO CSS (CORREÇÃO DE CORES E TAMANHOS)
 st.markdown("""
     <style>
-    /* FUNDO E FONTE */
-    .stApp { background-color: #FFFFFF; color: #1A1A1A; font-family: 'Inter', sans-serif; }
+    /* FUNDO GERAL BRANCO */
+    .stApp { 
+        background-color: #FFFFFF; 
+        color: #1A1A1A; 
+        font-family: 'Inter', sans-serif; 
+    }
     
-    /* REMOVER ESPAÇOS E MENUS PADRÃO */
+    /* REMOVER ESPAÇOS EXTRAS */
     .block-container { padding-top: 1rem !important; padding-bottom: 2rem !important; }
     [data-testid="stToolbar"] {visibility: hidden;}
     footer {visibility: hidden;}
 
-    /* ESTILO DOS BOTÕES DE NAVEGAÇÃO (RADIO) - Para parecerem abas */
-    div[role="radiogroup"] {
-        background-color: #f0f2f6;
-        padding: 10px;
-        border-radius: 12px;
-        display: flex;
-        justify-content: center;
-        margin-bottom: 25px;
-        border: 1px solid #e0e0e0;
+    /* --- CORREÇÃO DO INPUT (TEXTO INVISÍVEL) --- */
+    /* Força o texto digitado a ser PRETO e o fundo BRANCO */
+    input[type="text"] {
+        color: #000000 !important;
+        background-color: #FFFFFF !important; 
     }
     
-    div[role="radiogroup"] label {
-        background-color: transparent;
-        padding: 5px 15px;
-        border-radius: 8px;
-        font-weight: 600;
-        cursor: pointer;
+    /* Garante que o texto dentro das caixas de seleção também seja escuro */
+    .stMultiSelect div, .stTextInput div {
+        color: #000000 !important;
+    }
+    
+    /* TÍTULO RESPONSIVO (Ajuste para Celular) */
+    h1.titulo-principal {
+        font-size: 2.2rem;
+        font-weight: 800;
+        color: #000000;
+        letter-spacing: -1px;
+        margin: 0;
+    }
+    
+    /* No celular, o título diminui para 1.5rem (24px) */
+    @media (max-width: 768px) {
+        h1.titulo-principal {
+            font-size: 1.5rem !important;
+        }
+        .subtitulo {
+            font-size: 0.9rem !important;
+        }
     }
 
-    /* BOTÃO DE AÇÃO PRETO (Estilo Cinema) */
+    /* ESTILO DOS BOTÕES DE NAVEGAÇÃO (TABS) */
+    div[role="radiogroup"] {
+        background-color: #F0F2F6;
+        padding: 8px;
+        border-radius: 10px;
+        margin-bottom: 20px;
+        border: 1px solid #E0E0E0;
+    }
+    div[role="radiogroup"] label {
+        color: #333333 !important; /* Cor do texto das abas */
+        font-weight: 600;
+    }
+
+    /* BOTÃO DE AÇÃO PRETO */
     div.stButton > button {
         background-color: #000000 !important;
         color: #FFFFFF !important;
@@ -42,46 +82,36 @@ st.markdown("""
         border-radius: 6px !important;
         height: 50px !important;
         font-weight: 700 !important;
-        font-size: 16px !important;
         width: 100%;
         text-transform: uppercase;
-        letter-spacing: 0.5px;
-        margin-top: 10px;
+        margin-top: 15px;
     }
     div.stButton > button:hover {
         background-color: #333333 !important;
-        box-shadow: 0 4px 10px rgba(0,0,0,0.2);
-    }
-
-    /* INPUTS E SELECTS (Visual limpo e clicável) */
-    .stTextInput > div > div, .stMultiSelect > div > div {
-        border: 1px solid #ced4da;
-        border-radius: 8px;
-        background-color: #fff;
     }
     
-    /* REFORÇO DE COLUNA ÚNICA NO MOBILE */
-    @media (max-width: 768px) {
-        .stMultiSelect, .stTextInput {
-            width: 100% !important;
-        }
+    /* Feedback de Sucesso/Erro */
+    .stAlert {
+        background-color: #f8f9fa;
+        color: #333;
+        border: 1px solid #ddd;
     }
     </style>
 """, unsafe_allow_html=True)
 
-# 3. TÍTULO PRINCIPAL (Apenas este, sem "Classificação via IA")
+# 3. CABEÇALHO
 st.markdown("""
     <div style="text-align: left; margin-bottom: 15px;">
-        <h1 style='color: #000; font-size: 2rem; margin: 0; font-weight: 800; letter-spacing: -0.5px;'>
+        <h1 class="titulo-principal">
             Acervo Cinema & Artes
         </h1>
-        <p style='color: #666; font-size: 1rem; margin-top: 5px;'>
+        <p class="subtitulo" style='color: #555; font-size: 1rem; margin-top: 5px;'>
             Sistema Integrado de Pesquisa e Referência
         </p>
     </div>
 """, unsafe_allow_html=True)
 
-# 4. NAVEGAÇÃO UNIFICADA (O container cinza com as opções)
+# 4. NAVEGAÇÃO
 modo_uso = st.radio(
     "Navegação", 
     ["🔍 Pesquisa no Acervo", "🤖 Consultor IA"],
@@ -89,50 +119,82 @@ modo_uso = st.radio(
     label_visibility="collapsed"
 )
 
-# 5. LÓGICA DE EXIBIÇÃO (Sem colunas, tudo empilhado e limpo)
+# 5. LÓGICA (COM AÇÃO REAL)
 
 if modo_uso == "🔍 Pesquisa no Acervo":
     
-    # SEÇÃO 1: FILTROS (Largura Total)
-    st.markdown("<p style='font-size: 0.9rem; font-weight: 700; color: #333; margin-bottom: 5px;'>CATEGORIAS</p>", unsafe_allow_html=True)
+    st.markdown("**CATEGORIAS**")
     categorias = st.multiselect(
         "Filtro de Categorias",
-        options=["Antropologia", "Artes", "Audiovisual", "Cinema", "Ciência Política", "Filosofia", "Fotografia", "Ficção", "Design", "Idioma", "Antropologia", "Marketing", "Economia", "Comunicação"],
+        options=df['Categoria'].unique(), # Pega categorias do dataframe falso
         default=None,
-        placeholder="Selecione os temas de interesse...",
+        placeholder="Selecione...",
         label_visibility="collapsed"
     )
     
-    st.write("") # Espaço vazio (Respiro)
+    st.write("") 
     
-    # SEÇÃO 2: TERMO (Largura Total)
-    st.markdown("<p style='font-size: 0.9rem; font-weight: 700; color: #333; margin-bottom: 5px;'>TERMO DE BUSCA</p>", unsafe_allow_html=True)
+    st.markdown("**TERMO DE BUSCA**")
     termo_busca = st.text_input(
         "Busca",
-        placeholder="Digite título, autor ou assunto...",
+        placeholder="Digite título ou autor...",
         label_visibility="collapsed"
     )
     
-    st.write("") # Espaço vazio
-    
-    # BOTÃO
+    # LÓGICA REAL DO BOTÃO
     if st.button("LOCALIZAR OBRA"):
-        if not termo_busca and not categorias:
-            st.warning("⚠️ Digite um termo ou selecione uma categoria.")
-        else:
-            # Simulando resultado para visualização
-            st.success(f"🔎 Buscando '{termo_busca}'...")
+        # Mostra um spinner para parecer que está processando
+        with st.spinner('Buscando no acervo...'):
+            time.sleep(0.5) # Pequena pausa dramática
+            
+            # Filtra o DataFrame de exemplo
+            resultados = df.copy()
+            
+            # Filtro 1: Categoria
+            if categorias:
+                resultados = resultados[resultados['Categoria'].isin(categorias)]
+            
+            # Filtro 2: Texto
+            if termo_busca:
+                resultados = resultados[
+                    resultados['Titulo'].str.contains(termo_busca, case=False) | 
+                    resultados['Autor'].str.contains(termo_busca, case=False)
+                ]
+            
+            # Exibe resultado
+            if not resultados.empty:
+                st.success(f"Encontramos {len(resultados)} itens.")
+                st.dataframe(resultados, use_container_width=True, hide_index=True)
+            else:
+                st.error("Nenhum item encontrado com esses filtros.")
 
 elif modo_uso == "🤖 Consultor IA":
     
-    st.info("💡 Este consultor utiliza Inteligência Artificial para responder perguntas complexas sobre o acervo.")
+    st.info("💡 Pergunte ao acervo como se falasse com um bibliotecário.")
     
-    st.markdown("<p style='font-size: 0.9rem; font-weight: 700; color: #333; margin-bottom: 5px;'>SUA PERGUNTA</p>", unsafe_allow_html=True)
+    st.markdown("**SUA PERGUNTA**")
     user_question = st.text_input(
         "Pergunta",
-        placeholder="Ex: Qual a relação entre o Cinema Novo e a política brasileira?",
+        placeholder="Ex: Livros sobre montagem soviética...",
         label_visibility="collapsed"
     )
     
     if st.button("ANALISAR COM IA"):
-        pass
+        if user_question:
+            with st.spinner('O Consultor sVAI está analisando...'):
+                time.sleep(1.5) # Simula tempo de pensamento da IA
+                
+                # Resposta Simulada (Aqui entraria o código do Gemini)
+                st.markdown(f"""
+                ### 🤖 Análise do Consultor
+                
+                Para sua pesquisa sobre **"{user_question}"**, recomendo iniciar pelos clássicos do formalismo russo.
+                
+                **Sugestões de Leitura:**
+                1. *A Forma do Filme* - Sergei Eisenstein
+                2. *O Sentido do Filme* - Sergei Eisenstein
+                
+                > **Nota Técnica:** A montagem soviética prioriza o conflito dialectico entre planos, ao contrário da montagem invisível de Hollywood.
+                """)
+        else:
+            st.warning("Por favor, digite uma pergunta.")
