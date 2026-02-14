@@ -10,101 +10,56 @@ import pandas as pd
 import streamlit as st
 import pandas as pd
 
-# 1. CONFIGURAÇÃO DA PÁGINA (Sempre a primeira linha!)
-st.set_page_config(page_title="Acervo de Cinema & Artes", layout="wide")
-
-# 2. DESIGN "CINEMA PRO" + AJUSTES MOBILE (CSS UNIFICADO)
-st.markdown("""
-    <style>
-    /* Fundo e Fonte */
-    .stApp { background-color: #FFFFFF; color: #1A1A1A; font-family: 'Inter', sans-serif; }
-    
-    /* Remove espaço branco excessivo do topo (Crítico para Mobile) */
-    .block-container { padding-top: 2rem !important; padding-bottom: 0rem !important; }
-
-    /* Esconde Menu e Rodapé padrão (Mais profissional) */
-    [data-testid="stToolbar"] {visibility: hidden;}
-    footer {visibility: hidden;}
-
-    /* BOTÕES PRETOS ELEGANTES (Seu estilo Cinema Pro) */
-    div.stButton > button {
-        background-color: #000000 !important;
-        color: #FFFFFF !important;
-        border: none !important;
-        border-radius: 8px !important;
-        height: 48px !important;
-        width: 100%;
-        font-weight: 700 !important;
-    }
-    div.stButton > button:hover {
-        background-color: #333333 !important; /* Cinza escuro no hover */
-    }
-
-    /* ESTILO DO MENU DE OPÇÕES (RADIO BUTTONS) */
-    div[role="radiogroup"] {
-        background-color: #F8F9FA;
-        padding: 10px;
-        border-radius: 10px;
-        margin-bottom: 20px;
-    }
-    </style>
-""", unsafe_allow_html=True)
-
-# 3. CABEÇALHO LIMPO E INSTRUCIONAL
+# --- 1. CABEÇALHO LIMPO E INSTRUCIONAL ---
 st.markdown("""
     <div style="margin-bottom: 15px;">
         <h1 style='text-align: left; color: #1E1E1E; font-size: 2.2rem; margin-bottom: 5px;'>
             Acervo de Cinema e Artes
         </h1>
         <p style='text-align: left; color: #555; font-size: 1.0rem; line-height: 1.5;'>
-            Bem-vindo. Selecione abaixo se deseja <b>pesquisar itens</b> no acervo 
-            ou conversar com nosso <b>Consultor IA</b>.
+            Bem-vindo ao sistema inteligente. Selecione abaixo se deseja <b>pesquisar itens</b> no acervo 
+            ou conversar com nosso <b>Consultor IA</b> para recomendações personalizadas.
         </p>
     </div>
 """, unsafe_allow_html=True)
 
-# 4. NAVEGAÇÃO CLARA (SUBSTITUI OS LINKS CONFUSOS)
-# Cria botões lado a lado para alternar as telas
+# --- 2. NAVEGAÇÃO CLARA (SUBSTITUI OS LINKS CONFUSOS) ---
+# Usamos st.radio horizontal para criar botões de alternância claros
 modo_uso = st.radio(
-    "Navegação:", 
+    "Escolha o modo de operação:", 
     ["🔍 Busca na Coleção", "🤖 Consultor Estratégico"],
     horizontal=True,
-    label_visibility="collapsed"
+    label_visibility="collapsed" # Esconde o rótulo para ficar mais limpo
 )
 
-st.divider() # Linha fina e elegante
+st.markdown("---") # Linha separadora sutil
 
-# --- INÍCIO DA LÓGICA ---
-
+# --- 3. CATEGORIAS NO TOPO (COLUNA ÚNICA) ---
+# Em vez de sidebar, usamos multiselect ou "pills" no topo para facilitar no celular
 if modo_uso == "🔍 Busca na Coleção":
     
-    # 5. FILTROS NO TOPO (Coluna Única - Mobile First)
-    st.write("### 📂 Filtrar Acervo") # Subtítulo pequeno
+    # Filtros visíveis logo de cara
+    col_filtro1, col_filtro2 = st.columns([3, 1])
     
-    # Multiselect ocupa a largura total, perfeito para celular e desktop
-    categorias = st.multiselect(
-        "Selecione as áreas de interesse:",
-        options=["Antropologia", "Artes", "Audiovisual", "Cinema", "Ciência Política"],
-        default=["Cinema", "Artes"],
-        placeholder="Escolha as categorias..."
-    )
+    with col_filtro1:
+        categorias_selecionadas = st.multiselect(
+            "Filtrar por Categorias:",
+            options=["Antropologia", "Artes", "Audiovisual", "Cinema", "Ciência Política"],
+            default=["Cinema", "Artes"], # Padrão já selecionado
+            placeholder="Escolha as áreas de interesse..."
+        )
     
-    # Espaço para o Input de Busca...
-    termo_busca = st.text_input("Digite termo, autor ou título:", placeholder="Ex: Nouvelle Vague...")
-    
-    # Botão de Ação com o seu estilo "Cinema Pro"
-    if st.button("PESQUISAR NO ACERVO"):
-        st.write(f"Buscando por: {termo_busca} nas categorias {categorias}...")
-        # Coloque aqui a lógica de busca do DataFrame...
+    with col_filtro2:
+        # Botão de limpar ou contagem (opcional)
+        st.caption(f"Áreas ativas: {len(categorias_selecionadas)}")
+
+    # AQUI ENTRA O CÓDIGO DA BUSCA (INPUT TEXTO E RESULTADOS)...
+    # st.text_input...
 
 elif modo_uso == "🤖 Consultor Estratégico":
-    st.info("💡 O Consultor sVAI utiliza IA para cruzar referências e sugerir leituras.")
-    
-    user_question = st.text_input("Qual sua dúvida sobre o tema?", placeholder="Ex: Livros sobre montagem soviética...")
-    
-    if st.button("ANALISAR AGORA"):
-        # Lógica do Gemini aqui...
-        pass
+    # AQUI ENTRA O CÓDIGO DO CHATBOT...
+    st.info("O Consultor sVAI utiliza IA para cruzar referências e sugerir leituras.")
+    # st.chat_input...
 
 # --- 3. FUNÇÕES ---
 def normalizar(texto):
