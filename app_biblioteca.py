@@ -97,7 +97,7 @@ if modo_uso == "🔍 Pesquisa no Acervo":
     st.markdown("<p style='font-size: 0.9rem; font-weight: 700; color: #333; margin-bottom: 5px;'>CATEGORIAS</p>", unsafe_allow_html=True)
     categorias = st.multiselect(
         "Filtro de Categorias",
-        options=["Antropologia", "Artes", "Audiovisual", "Cinema", "Ciência Política", "Sociologia", "História", "Teoria da Comunicação"],
+        options=["Antropologia", "Artes", "Audiovisual", "Cinema", "Ciência Política", "Filosofia", "Fotografia", "Ficção", "Design", "Idioma", "Antropologia", "Marketing", "Economia", "Comunicação"],
         default=None,
         placeholder="Selecione os temas de interesse...",
         label_visibility="collapsed"
