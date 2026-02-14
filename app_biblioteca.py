@@ -1,78 +1,60 @@
 import streamlit as st
 import pandas as pd
 import google.generativeai as genai
-import time
+import os
 
-# -----------------------------------------------------------------------------
-# 1. CONFIGURAÇÃO DA PÁGINA (OBRIGATÓRIO SER A PRIMEIRA LINHA)
-# -----------------------------------------------------------------------------
+# 1. CONFIGURAÇÃO DA PÁGINA
 st.set_page_config(page_title="Acervo Cinema & Artes", layout="wide")
 
-# -----------------------------------------------------------------------------
-# 2. CONEXÃO SEGURA COM A IA (LENDO SEU ARQUIVO SECRETS.TOML)
-# -----------------------------------------------------------------------------
-api_key = None
-
-# Tenta pegar a chave do seu arquivo seguro (.streamlit/secrets.toml)
+# 2. CONFIGURAÇÃO DA API (PRIORIDADE: ARQUIVO SECRETS)
+# Ele vai ler automaticamente do seu .streamlit/secrets.toml
 if "GOOGLE_API_KEY" in st.secrets:
-    api_key = st.secrets["GOOGLE_API_KEY"]
-
-# Configura a IA se a chave foi encontrada
-if api_key:
-    genai.configure(api_key=api_key)
+    genai.configure(api_key=st.secrets["GOOGLE_API_KEY"])
+    api_status = "✅ Conectado"
 else:
-    # Se não achar, avisa discretamente na lateral
-    st.warning("⚠️ Arquivo secrets.toml não detectado ou chave incorreta.")
+    # Se der erro, avisa para verificar o arquivo
+    api_status = "⚠️ Sem Chave"
 
-# -----------------------------------------------------------------------------
-# 3. CARREGAMENTO DE DADOS (MOTOR DE ARQUIVOS)
-# -----------------------------------------------------------------------------
+# 3. MOTOR DE DADOS INTELIGENTE (O "Pulo do Gato")
 @st.cache_data
-def carregar_dados(arquivo_upload=None):
-    # Se o usuário subiu um arquivo agora, usa ele
-    if arquivo_upload is not None:
-        try:
-            if arquivo_upload.name.endswith('.csv'):
-                return pd.read_csv(arquivo_upload)
-            else:
-                return pd.read_excel(arquivo_upload)
-        except Exception as e:
-            st.error(f"Erro ao ler arquivo: {e}")
-            return None
+def carregar_dados_inteligente():
+    # Pega todos os arquivos da pasta atual
+    arquivos_na_pasta = os.listdir()
     
-    # Se não, tenta achar arquivos na pasta do projeto
-    try:
-        return pd.read_csv("biblioteca.csv")
-    except:
-        try:
-            return pd.read_excel("livros.xlsx")
-        except:
-            return None
+    # Procura QUALQUER arquivo que termine com .csv ou .xlsx
+    arquivos_csv = [f for f in arquivos_na_pasta if f.endswith('.csv')]
+    arquivos_excel = [f for f in arquivos_na_pasta if f.endswith('.xlsx')]
+    
+    # Se achar CSV, carrega o primeiro que vir (Ex: "Minha biblioteca.csv")
+    if arquivos_csv:
+        print(f"Arquivo CSV encontrado: {arquivos_csv[0]}") # Mostra no terminal
+        return pd.read_csv(arquivos_csv[0])
+    
+    # Se não, tenta Excel
+    elif arquivos_excel:
+        return pd.read_excel(arquivos_excel[0])
+    
+    # Se não achar nada, retorna vazio
+    return None
 
-# Tenta carregar automaticamente
-df = carregar_dados()
+# Carrega os dados automaticamente
+df = carregar_dados_inteligente()
 
-# -----------------------------------------------------------------------------
-# 4. ESTILO CSS (DESIGN "CINEMA PRO" - COLUNA ÚNICA E LIMPEZA)
-# -----------------------------------------------------------------------------
+# 4. ESTILO VISUAL (DESIGN APROVADO)
 st.markdown("""
     <style>
-    /* FUNDO BRANCO E FONTE PROFISSIONAL */
     .stApp { background-color: #FFFFFF; color: #1A1A1A; font-family: 'Inter', sans-serif; }
-    
-    /* REMOVER ESPAÇOS E MENUS DO STREAMLIT */
-    .block-container { padding-top: 1.5rem !important; padding-bottom: 3rem !important; }
-    [data-testid="stToolbar"] {visibility: hidden;}
-    footer {visibility: hidden;}
+    .block-container { padding-top: 1.5rem !important; }
+    [data-testid="stToolbar"], footer {visibility: hidden;}
 
-    /* CORREÇÃO CRÍTICA DE LEGIBILIDADE (PRETO NO BRANCO) */
+    /* INPUTS ESCUROS NO FUNDO CLARO */
     input[type="text"], textarea, .stMultiSelect div {
         color: #000000 !important;
-        background-color: #FFFFFF !important; 
+        background-color: #FAFAFA !important; 
         border: 1px solid #ced4da !important;
     }
     
-    /* BOTÕES PRETOS (ESTILO CINEMA) */
+    /* BOTÕES PRETOS */
     div.stButton > button {
         background-color: #000000 !important;
         color: #FFFFFF !important;
@@ -82,15 +64,13 @@ st.markdown("""
         font-weight: 700 !important;
         width: 100%;
         text-transform: uppercase;
-        letter-spacing: 0.5px;
         margin-top: 10px;
     }
     div.stButton > button:hover {
         background-color: #333333 !important;
-        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
     }
 
-    /* MENU DE NAVEGAÇÃO (TABS) */
+    /* MENU NAVEGAÇÃO */
     div[role="radiogroup"] {
         background-color: #F8F9FA;
         padding: 8px;
@@ -101,159 +81,95 @@ st.markdown("""
         justify-content: center;
     }
     div[role="radiogroup"] label {
-        color: #333 !important;
-        font-weight: 600;
-        cursor: pointer;
-    }
-
-    /* TÍTULO RESPONSIVO */
-    h1 { font-size: 2.2rem; color: #000; font-weight: 800; margin: 0; letter-spacing: -1px; }
-    p.subtitulo { color: #666; font-size: 1rem; margin-top: 5px; }
-    
-    @media (max-width: 768px) {
-        h1 { font-size: 1.6rem !important; }
-        p.subtitulo { font-size: 0.9rem !important; }
+        color: #333 !important; font-weight: 600;
     }
     </style>
 """, unsafe_allow_html=True)
 
-# -----------------------------------------------------------------------------
-# 5. INTERFACE VISUAL (FRONT-END)
-# -----------------------------------------------------------------------------
+# 5. INTERFACE
 
-# Se não achou arquivo automático, mostra botão de upload
+# Se não achou arquivo nenhum (nem CSV nem Excel na pasta)
 if df is None:
-    st.markdown("### 📂 Configuração Inicial")
-    st.warning("Nenhum arquivo 'biblioteca.csv' ou 'livros.xlsx' encontrado na pasta.")
-    arquivo = st.file_uploader("Faça upload da sua planilha agora:", type=["csv", "xlsx"])
-    if arquivo:
-        df = carregar_dados(arquivo)
-        st.rerun() # Recarrega a página ao subir
+    st.error("❌ Nenhum arquivo CSV ou Excel encontrado na pasta.")
+    st.info(f"Arquivos vistos na pasta: {os.listdir()}") # Mostra o que ele está vendo
+    uploaded = st.file_uploader("Faça upload manual:", type=['csv', 'xlsx'])
+    if uploaded:
+        if uploaded.name.endswith('.csv'):
+            df = pd.read_csv(uploaded)
+        else:
+            df = pd.read_excel(uploaded)
+        st.rerun()
 
-# Se já temos dados, mostra o app completo
+# Se os dados foram carregados, mostra o app
 if df is not None:
-    
-    # Limpeza básica nos nomes das colunas
+    # Limpeza de colunas
     df.columns = df.columns.str.strip()
     
-    # Identifica a coluna de assuntos/categorias automaticamente
+    # Tenta achar a coluna de categoria/assunto
     col_categoria = None
-    cols_possiveis = [c for c in df.columns if any(x in c.lower() for x in ['cat', 'assunto', 'area', 'genero'])]
-    if cols_possiveis:
-        col_categoria = cols_possiveis[0]
+    for c in df.columns:
+        if any(x in c.lower() for x in ['cat', 'assunto', 'area', 'genero']):
+            col_categoria = c
+            break
 
-    # --- CABEÇALHO ---
+    # Cabeçalho
     st.markdown("""
         <div style="text-align: left; margin-bottom: 20px;">
-            <h1>Acervo Cinema & Artes</h1>
-            <p class="subtitulo">Sistema Integrado de Pesquisa e Referência</p>
+            <h1 style='font-size: 2.2rem; color: #000; margin: 0;'>Acervo Cinema & Artes</h1>
+            <p style='color: #666; margin-top: 5px;'>Sistema Integrado de Pesquisa</p>
         </div>
     """, unsafe_allow_html=True)
 
-    # --- NAVEGAÇÃO ---
-    modo_uso = st.radio(
-        "Menu de Navegação", 
-        ["🔍 Pesquisa no Acervo", "🤖 Consultor IA"],
-        horizontal=True,
-        label_visibility="collapsed"
-    )
+    # Navegação
+    modo = st.radio("Menu", ["🔍 Pesquisa", "🤖 Consultor IA"], horizontal=True, label_visibility="collapsed")
 
-    # =========================================================================
-    # MODO 1: PESQUISA (BUSCA REAL NO EXCEL)
-    # =========================================================================
-    if modo_uso == "🔍 Pesquisa no Acervo":
+    # --- MODO PESQUISA ---
+    if modo == "🔍 Pesquisa":
         
-        # Filtro de Categoria (se existir no excel)
+        # Filtros
         filtro_cats = []
         if col_categoria:
-            st.markdown("<p style='font-size: 0.85rem; font-weight: 700; color: #333; margin-bottom: 2px;'>FILTRAR CATEGORIAS</p>", unsafe_allow_html=True)
-            opcoes_cat = sorted(df[col_categoria].dropna().astype(str).unique())
-            filtro_cats = st.multiselect(
-                "Categorias", 
-                options=opcoes_cat, 
-                label_visibility="collapsed",
-                placeholder="Selecione os temas..."
-            )
-            st.write("") # Respiro
+            st.markdown("<p style='font-size: 0.8rem; font-weight: 700; color: #333; margin-bottom: 0;'>CATEGORIAS</p>", unsafe_allow_html=True)
+            opcoes = sorted(df[col_categoria].dropna().astype(str).unique())
+            filtro_cats = st.multiselect("Cats", options=opcoes, label_visibility="collapsed", placeholder="Selecione temas...")
+            st.write("") 
 
-        # Filtro de Texto
-        st.markdown("<p style='font-size: 0.85rem; font-weight: 700; color: #333; margin-bottom: 2px;'>TERMO DE BUSCA</p>", unsafe_allow_html=True)
-        termo = st.text_input(
-            "Busca", 
-            placeholder="Digite título, autor ou palavra-chave...", 
-            label_visibility="collapsed"
-        )
+        st.markdown("<p style='font-size: 0.8rem; font-weight: 700; color: #333; margin-bottom: 0;'>TERMO</p>", unsafe_allow_html=True)
+        termo = st.text_input("Busca", placeholder="Título, autor...", label_visibility="collapsed")
         
-        # Botão de Pesquisa
-        if st.button("LOCALIZAR OBRA"):
-            # Lógica de Filtragem
-            resultado = df.copy()
-            
-            # 1. Aplica filtro de categoria
+        if st.button("LOCALIZAR"):
+            res = df.copy()
             if filtro_cats and col_categoria:
-                resultado = resultado[resultado[col_categoria].astype(str).isin(filtro_cats)]
-            
-            # 2. Aplica filtro de texto (busca em todo o dataframe)
+                res = res[res[col_categoria].astype(str).isin(filtro_cats)]
             if termo:
-                mask = resultado.astype(str).apply(lambda x: x.str.contains(termo, case=False, na=False)).any(axis=1)
-                resultado = resultado[mask]
+                mask = res.astype(str).apply(lambda x: x.str.contains(termo, case=False, na=False)).any(axis=1)
+                res = res[mask]
             
-            # Exibe Resultados
-            if not resultado.empty:
-                st.success(f"Encontramos {len(resultado)} registros.")
-                st.dataframe(resultado, use_container_width=True, hide_index=True)
+            if not res.empty:
+                st.success(f"{len(res)} itens encontrados.")
+                st.dataframe(res, use_container_width=True, hide_index=True)
             else:
-                st.warning("Nenhum item encontrado com esses critérios.")
+                st.warning("Nada encontrado.")
 
-    # =========================================================================
-    # MODO 2: CONSULTOR IA (CONECTADO AO GEMINI)
-    # =========================================================================
-    elif modo_uso == "🤖 Consultor IA":
+    # --- MODO IA ---
+    elif modo == "🤖 Consultor IA":
+        st.info("💡 Pergunte ao especialista.")
+        st.markdown("<p style='font-size: 0.8rem; font-weight: 700; color: #333; margin-bottom: 0;'>SUA DÚVIDA</p>", unsafe_allow_html=True)
+        pergunta = st.text_input("Dúvida", placeholder="Ex: Livros sobre Nouvelle Vague...", label_visibility="collapsed")
         
-        st.info("💡 Pergunte ao acervo como se falasse com um bibliotecário sênior.")
-        
-        st.markdown("<p style='font-size: 0.85rem; font-weight: 700; color: #333; margin-bottom: 2px;'>SUA PERGUNTA</p>", unsafe_allow_html=True)
-        pergunta = st.text_input(
-            "Pergunta", 
-            placeholder="Ex: Indique livros sobre a estética da fome no Cinema Novo.", 
-            label_visibility="collapsed"
-        )
-        
-        if st.button("ANALISAR COM IA"):
-            if not api_key:
-                st.error("⚠️ Erro de Configuração: API Key não encontrada no secrets.toml.")
+        if st.button("ANALISAR"):
+            if api_status == "⚠️ Sem Chave":
+                st.error("Erro: API Key não encontrada no secrets.toml")
             elif not pergunta:
-                st.warning("Por favor, digite uma pergunta.")
+                st.warning("Digite uma pergunta.")
             else:
-                with st.spinner('Consultando o acervo e formulando resposta...'):
+                with st.spinner('Lendo acervo...'):
                     try:
-                        # Prepara o contexto (uma amostra dos livros para a IA ler)
-                        # Limitamos a 60 linhas para ser rápido e eficiente
-                        contexto_acervo = df.head(60).to_string(index=False)
-                        
-                        # Prompt Especializado
-                        prompt = f"""
-                        Você é um Bibliotecário Especialista em Cinema e Artes.
-                        Use o seguinte catálogo de livros como base para sua resposta (esta é apenas uma amostra do acervo):
-                        ---
-                        {contexto_acervo}
-                        ---
-                        
-                        PERGUNTA DO USUÁRIO: "{pergunta}"
-                        
-                        DIRETRIZES:
-                        1. Priorize recomendar livros que ESTÃO na lista acima. Cite Título e Autor.
-                        2. Se a lista não tiver livros exatos sobre o tema, use seu conhecimento geral para sugerir clássicos da área, mas DEIXE CLARO que são sugestões externas.
-                        3. Responda de forma curta, elegante e acadêmica.
-                        """
-                        
-                        # Chama o Gemini
+                        # Contexto para a IA
+                        txt_acervo = df.head(60).to_string(index=False)
                         model = genai.GenerativeModel('gemini-1.5-flash')
-                        response = model.generate_content(prompt)
-                        
-                        # Mostra a resposta
-                        st.markdown("### 🤖 Resposta do Consultor:")
-                        st.markdown(response.text)
-                        
+                        resp = model.generate_content(f"Seja um bibliotecário. Responda: '{pergunta}'. Baseie-se neste acervo (mas pode expandir): \n\n{txt_acervo}")
+                        st.markdown("### 🤖 Resposta:")
+                        st.markdown(resp.text)
                     except Exception as e:
-                        st.error(f"Erro de conexão com a IA: {e}")
+                        st.error(f"Erro na IA: {e}")
