@@ -7,89 +7,104 @@ import streamlit as st
 import pandas as pd
 # ... outros imports ...
 
-# 1. Se tiver esta linha, ela OBRIGATORIAMENTE fica aqui em cima:
-st.set_page_config(layout="wide", page_title="sVAI Metadados") 
+import streamlit as st
+import pandas as pd
 
-# 2. O CÓDIGO DE ESTILO (CSS) ENTRA AQUI (Logo após a configuração da página):
+# 1. CONFIGURAÇÃO DA PÁGINA (Sempre a primeira linha!)
+st.set_page_config(page_title="Acervo de Cinema & Artes", layout="wide")
+
+# 2. DESIGN "CINEMA PRO" + AJUSTES MOBILE (CSS UNIFICADO)
 st.markdown("""
     <style>
-        /* Força o título (H1) a ficar pequeno (18px a 20px) */
-        h1 {
-            font-size: 1.5rem !important; 
-            font-weight: 600 !important;
-            margin-bottom: 0px !important;
-            padding-top: 0px !important;
-        }
-        
-        /* Remove o espaço branco gigante do topo */
-        .block-container {
-            padding-top: 1rem !important;
-            padding-bottom: 0rem !important;
-        }
-        
-        /* Esconde o menu de hambúrguer e rodapé do Streamlit (opcional, deixa mais limpo) */
-        [data-testid="stToolbar"] {visibility: hidden;}
-        footer {visibility: hidden;}
-    </style>
-""", unsafe_allow_html=True)
-
-# 3. O resto do seu código continua normal abaixo...
-st.title("Acervo de Cinema e Artes") 
-# etc...
-# --- 1. CONFIGURAÇÃO DA PÁGINA ---
-st.set_page_config(page_title="sVai Biblioteca Pro", layout="wide")
-
-# --- 2. DESIGN "CINEMA PRO" (CONTRASTE E ALINHAMENTO PERFEITO) ---
-st.markdown("""
-    <style>
+    /* Fundo e Fonte */
     .stApp { background-color: #FFFFFF; color: #1A1A1A; font-family: 'Inter', sans-serif; }
     
-    /* SIDEBAR */
-    [data-testid="stSidebar"] { background-color: #F8F9FA !important; border-right: 1px solid #E9ECEF; }
-    [data-testid="stSidebar"] * { color: #000000 !important; font-weight: 700 !important; }
+    /* Remove espaço branco excessivo do topo (Crítico para Mobile) */
+    .block-container { padding-top: 2rem !important; padding-bottom: 0rem !important; }
 
-    /* BOTÃO: FUNDO PRETO E ALINHAMENTO DE TEXTO CORRIGIDO */
+    /* Esconde Menu e Rodapé padrão (Mais profissional) */
+    [data-testid="stToolbar"] {visibility: hidden;}
+    footer {visibility: hidden;}
+
+    /* BOTÕES PRETOS ELEGANTES (Seu estilo Cinema Pro) */
     div.stButton > button {
         background-color: #000000 !important;
         color: #FFFFFF !important;
         border: none !important;
         border-radius: 8px !important;
-        padding: 0px 24px !important; /* Remove padding vertical excessivo */
-        height: 48px !important; /* Altura fixa para garantir elegância */
+        height: 48px !important;
         width: 100%;
-        
-        /* Flexbox para centralizar o texto perfeitamente */
-        display: flex !important;
-        align-items: center !important;
-        justify-content: center !important;
+        font-weight: 700 !important;
     }
-
-    /* O SEGREDO DO ALINHAMENTO: Remover margens do texto interno */
-    div.stButton > button p {
-        color: #FFFFFF !important;
-        font-size: 16px !important;
-        font-weight: 900 !important;
-        margin: 0 !important;     /* Remove margem que empurrava o texto */
-        line-height: 1 !important; /* Garante que a linha não seja alta demais */
-        padding-top: 0 !important;
-    }
-
-    /* HOVER */
     div.stButton > button:hover {
-        background-color: #333333 !important;
-        color: #FFFFFF !important;
+        background-color: #333333 !important; /* Cinza escuro no hover */
     }
 
-    .book-card {
-        background-color: #FFFFFF;
-        padding: 24px;
-        border-radius: 12px;
-        border: 1px solid #E9ECEF;
+    /* ESTILO DO MENU DE OPÇÕES (RADIO BUTTONS) */
+    div[role="radiogroup"] {
+        background-color: #F8F9FA;
+        padding: 10px;
+        border-radius: 10px;
         margin-bottom: 20px;
-        box-shadow: 0 4px 12px rgba(0,0,0,0.05);
     }
     </style>
 """, unsafe_allow_html=True)
+
+# 3. CABEÇALHO LIMPO E INSTRUCIONAL
+st.markdown("""
+    <div style="margin-bottom: 15px;">
+        <h1 style='text-align: left; color: #1E1E1E; font-size: 2.2rem; margin-bottom: 5px;'>
+            Acervo de Cinema e Artes
+        </h1>
+        <p style='text-align: left; color: #555; font-size: 1.0rem; line-height: 1.5;'>
+            Bem-vindo. Selecione abaixo se deseja <b>pesquisar itens</b> no acervo 
+            ou conversar com nosso <b>Consultor IA</b>.
+        </p>
+    </div>
+""", unsafe_allow_html=True)
+
+# 4. NAVEGAÇÃO CLARA (SUBSTITUI OS LINKS CONFUSOS)
+# Cria botões lado a lado para alternar as telas
+modo_uso = st.radio(
+    "Navegação:", 
+    ["🔍 Busca na Coleção", "🤖 Consultor Estratégico"],
+    horizontal=True,
+    label_visibility="collapsed"
+)
+
+st.divider() # Linha fina e elegante
+
+# --- INÍCIO DA LÓGICA ---
+
+if modo_uso == "🔍 Busca na Coleção":
+    
+    # 5. FILTROS NO TOPO (Coluna Única - Mobile First)
+    st.write("### 📂 Filtrar Acervo") # Subtítulo pequeno
+    
+    # Multiselect ocupa a largura total, perfeito para celular e desktop
+    categorias = st.multiselect(
+        "Selecione as áreas de interesse:",
+        options=["Antropologia", "Artes", "Audiovisual", "Cinema", "Ciência Política"],
+        default=["Cinema", "Artes"],
+        placeholder="Escolha as categorias..."
+    )
+    
+    # Espaço para o Input de Busca...
+    termo_busca = st.text_input("Digite termo, autor ou título:", placeholder="Ex: Nouvelle Vague...")
+    
+    # Botão de Ação com o seu estilo "Cinema Pro"
+    if st.button("PESQUISAR NO ACERVO"):
+        st.write(f"Buscando por: {termo_busca} nas categorias {categorias}...")
+        # Coloque aqui a lógica de busca do DataFrame...
+
+elif modo_uso == "🤖 Consultor Estratégico":
+    st.info("💡 O Consultor sVAI utiliza IA para cruzar referências e sugerir leituras.")
+    
+    user_question = st.text_input("Qual sua dúvida sobre o tema?", placeholder="Ex: Livros sobre montagem soviética...")
+    
+    if st.button("ANALISAR AGORA"):
+        # Lógica do Gemini aqui...
+        pass
 
 # --- 3. FUNÇÕES ---
 def normalizar(texto):
