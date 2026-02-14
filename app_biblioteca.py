@@ -1,42 +1,31 @@
-import streamlit as st
+imporimport streamlit as st
 import pandas as pd
 import google.generativeai as genai
 import os
 
-# 1. CONFIGURAÇÃO INSTITUCIONAL
-st.set_page_config(
-    page_title="Acervo Cinema & Artes", 
-    layout="wide", 
-    initial_sidebar_state="collapsed"
-)
+# 1. CONFIGURAÇÃO
+st.set_page_config(page_title="Acervo Cinema & Artes", layout="wide")
 
-# 2. SEGURANÇA (Conexão com a Chave GOOGLE_API_KEY que você configurou no site)
-api_status = False
+# 2. SEGURANÇA
 if "GOOGLE_API_KEY" in st.secrets:
-    try:
-        genai.configure(api_key=st.secrets["GOOGLE_API_KEY"])
-        api_status = True
-    except:
-        api_status = False
+    genai.configure(api_key=st.secrets["GOOGLE_API_KEY"])
 
-# 3. MOTOR DE DADOS PROFISSIONAL (Busca o .xlsx primeiro)
+# 3. MOTOR DE DADOS (FORÇANDO O EXCEL)
 @st.cache_data
 def carregar_dados():
-    arquivos = os.listdir()
-    # Filtra arquivos Excel (suporta .xlsx ou .xls)
-    arquivo_excel = [f for f in arquivos if f.endswith(('.xlsx', '.xls'))]
+    # Ignoramos o CSV problemático e vamos direto no Excel profissional
+    try:
+        if os.path.exists('biblioteca.xlsx'):
+            df = pd.read_excel('biblioteca.xlsx')
+            return df, 'biblioteca.xlsx'
+    except Exception as e:
+        st.error(f"Erro ao ler biblioteca.xlsx: {e}")
     
-    if arquivo_excel:
-        try:
-            # Carrega o primeiro arquivo Excel encontrado
-            df = pd.read_excel(arquivo_excel[0])
-            return df, arquivo_excel[0]
-        except Exception as e:
-            return None, f"Erro ao ler Excel: {e}"
-    
-    return None, "Nenhum arquivo .xlsx encontrado na pasta."
+    return None, None
 
 df, nome_arquivo = carregar_dados()
+
+# ... (restante do código de busca e IA)
 
 # 4. DESIGN CSS (Visual Limpo - Coluna Única)
 st.markdown("""
