@@ -2,192 +2,121 @@ import streamlit as st
 import pandas as pd
 import google.generativeai as genai
 import os
+import re
 
-# 1. DESIGN VISUAL (CSS)
 st.set_page_config(page_title="Acervo Cinema & Artes", layout="wide")
 
+# --- ÁREA DE DIAGNÓSTICO DE ERRO (APAGUE ISTO DEPOIS QUE FUNCIONAR) ---
+st.markdown("### 🛠️ PAINEL DE DIAGNÓSTICO DA CHAVE")
+
+if "GOOGLE_API_KEY" in st.secrets:
+    chave_recebida = st.secrets["GOOGLE_API_KEY"]
+    st.success("✅ SUCESSO: O arquivo Secrets foi lido!")
+    st.write(f"A chave carregada começa com: **{chave_recebida[:6]}...**")
+    st.write(f"O tamanho total da chave é: **{len(chave_recebida)} caracteres**.")
+    
+    # Teste real de conexão
+    try:
+        genai.configure(api_key=chave_recebida)
+        model = genai.GenerativeModel('gemini-1.5-flash')
+        response = model.generate_content("Teste de conexão.")
+        st.success("✅ CONEXÃO COM GOOGLE: Funcionando! A IA respondeu.")
+    except Exception as e:
+        st.error(f"❌ ERRO DE CONEXÃO: O Secret foi lido, mas a chave foi rejeitada pelo Google.")
+        st.warning(f"Mensagem do erro: {e}")
+        st.info("Dica: Verifique se sua chave API Key está ativa no Google AI Studio.")
+else:
+    st.error("❌ FRACASSO: O Streamlit NÃO encontrou a variável 'GOOGLE_API_KEY'.")
+    st.info("Verifique se no arquivo TOML você escreveu exatamente: GOOGLE_API_KEY = \"sua-chave\"")
+
+st.markdown("---")
+# ----------------------------------------------------------------------
+
+# ESTILO VISUAL
 st.markdown("""
 <style>
-    .block-container { padding-top: 2rem; }
     .book-card {
-        background-color: #ffffff;
-        padding: 24px;
-        border-radius: 12px;
-        border: 1px solid #e0e0e0;
-        margin-bottom: 16px;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.05);
-        transition: transform 0.2s;
+        background-color: white; padding: 20px; border-radius: 10px;
+        border: 1px solid #e0e0e0; margin-bottom: 15px;
+        box-shadow: 0 2px 5px rgba(0,0,0,0.05);
     }
-    .book-card:hover { border-color: #000; transform: translateY(-2px); }
-    .book-title { font-size: 20px; font-weight: 700; color: #111; margin-bottom: 8px; }
-    .book-meta { font-size: 14px; color: #555; margin-bottom: 12px; font-family: monospace;}
-    .book-resume { font-size: 15px; color: #444; line-height: 1.6; }
-    .tag {
-        display: inline-block; background-color: #f0f0f0; color: #333;
-        padding: 4px 10px; border-radius: 15px; font-size: 12px; font-weight: 600;
-    }
-    .stButton>button {
-        background-color: #000; color: white; border-radius: 8px; height: 45px; font-weight: bold;
-    }
+    .book-title { font-size: 20px; font-weight: bold; color: #000; margin-bottom: 5px; }
+    .book-meta { font-size: 14px; color: #666; font-style: italic; margin-bottom: 10px; }
+    .book-resume { font-size: 15px; line-height: 1.5; color: #333; }
+    .tag { background-color: #f0f0f0; padding: 3px 8px; border-radius: 10px; font-size: 12px; font-weight: bold; color: #555; }
+    .stButton>button { background-color: #000; color: white; border: none; border-radius: 6px; height: 45px; }
 </style>
 """, unsafe_allow_html=True)
 
-# 2. CARREGAMENTO E LIMPEZA DE DADOS
+# CARREGAMENTO E LIMPEZA
 @st.cache_data
-def carregar_acervo():
+def carregar_dados():
     arquivos = [f for f in os.listdir() if f.endswith('.xlsx')]
     if not arquivos: return None
-    
     arquivo = arquivos[0]
     try:
-        # A. Identifica cabeçalho real
         df = pd.read_excel(arquivo, header=None)
         inicio = 0
         for i, row in df.head(15).iterrows():
             linha = row.astype(str).str.lower().tolist()
             if any(x in linha for x in ['título', 'titulo', 'autor']):
-                inicio = i
-                break
+                inicio = i; break
         
         df = pd.read_excel(arquivo, header=inicio)
+        df = df.loc[:, ~df.columns.str.contains('^Unnamed')].dropna(how='all').fillna('').astype(str)
         
-        # B. Limpeza Pesada
-        df = df.loc[:, ~df.columns.str.contains('^Unnamed')]
-        df = df.dropna(how='all')
-        df = df.fillna('')
-        df = df.astype(str)
-        
-        # C. Limpeza das Categorias (+1)
-        # Procura coluna de categoria e remove tudo após o '+'
         col_cat = next((c for c in df.columns if 'categoria' in c.lower()), None)
         if col_cat:
-            df[col_cat] = df[col_cat].apply(lambda x: str(x).split('+')[0].strip())
-            # Remove quem ficou vazio ou 'nan'
-            df = df[df[col_cat] != 'nan']
-            df = df[df[col_cat] != '']
-
+            df[col_cat] = df[col_cat].apply(lambda x: re.sub(r'\+.*', '', str(x)).strip())
         return df
-    except:
-        return None
+    except: return None
 
-df = carregar_acervo()
+df = carregar_dados()
 
-# 3. INTERFACE PRINCIPAL
+# INTERFACE
 st.title("Acervo Cinema & Artes")
 
 if df is not None:
-    # --- BARRA LATERAL ---
     with st.sidebar:
-        st.header("🗂️ Filtros")
-        
-        # Filtro de Categoria
+        st.header("Filtros")
         col_cat = next((c for c in df.columns if 'categoria' in c.lower()), None)
-        cat_filtro = "Todas"
-        if col_cat:
-            opcoes = sorted([x for x in df[col_cat].unique() if len(x) > 1])
-            cat_filtro = st.selectbox("Categoria:", ["Todas"] + opcoes)
-            
-        st.metric("Obras no Acervo", len(df))
-        st.caption("Desenvolvido por sVAI")
+        cat_sel = st.selectbox("Categoria:", ["Todas"] + sorted([x for x in df[col_cat].unique() if len(x)>2])) if col_cat else "Todas"
+        st.metric("Total", len(df))
 
-    # Aplica Filtro de Categoria
-    df_exibicao = df.copy()
-    if cat_filtro != "Todas" and col_cat:
-        df_exibicao = df_exibicao[df_exibicao[col_cat] == cat_filtro]
+    df_exibicao = df[df[col_cat] == cat_sel] if cat_sel != "Todas" and col_cat else df.copy()
+    
+    tab1, tab2 = st.tabs(["🔍 Busca", "🤖 IA"])
 
-    # Abas
-    tab1, tab2 = st.tabs(["🔍 Pesquisa Visual", "🤖 Consultor IA"])
-
-    # --- ABA 1: BUSCA INTELIGENTE (MODO "E") ---
     with tab1:
-        st.markdown("##### Busca Rápida:")
-        termo_input = st.text_input("", placeholder="Ex: montagem cinema (encontra livros com AMBOS os termos)")
-        
-        if termo_input:
-            # 1. Quebra a frase em palavras
-            palavras = termo_input.lower().split()
-            # 2. Palavras proibidas (Stopwords) para não buscar "o", "a", "de"
-            ignorar = ['o', 'a', 'os', 'as', 'de', 'do', 'da', 'em', 'para', 'com', 'tem', 'livros', 'sobre', 'quero']
-            palavras_chave = [p for p in palavras if p not in ignorar]
-            
-            if not palavras_chave:
-                resultados = df_exibicao
-            else:
-                # 3. LÓGICA "E" (AND): Todas as palavras devem estar na linha
-                def contem_todas_palavras(row):
-                    texto_linha = row.astype(str).str.lower().str.cat(sep=' ')
-                    # Retorna True APENAS se TODAS as palavras chaves estiverem presentes
-                    return all(p in texto_linha for p in palavras_chave)
-                
-                mask = df_exibicao.apply(contem_todas_palavras, axis=1)
-                resultados = df_exibicao[mask]
-        else:
-            resultados = df_exibicao
+        termo = st.text_input("Busca:", placeholder="Digite os termos...")
+        if termo:
+            palavras = [p for p in termo.lower().split() if p not in ['o','a','de','do','em']]
+            mask = df_exibicao.apply(lambda row: all(p in row.astype(str).str.lower().str.cat(sep=' ') for p in palavras), axis=1)
+            res = df_exibicao[mask]
+        else: res = df_exibicao
 
-        # Exibição
-        st.markdown(f"Exibindo {len(resultados)} obras")
-        st.write("---")
-
-        if not resultados.empty:
-            for index, row in resultados.iterrows():
-                # Identifica colunas dinamicamente
-                c_titulo = next((c for c in df.columns if 'título' in c.lower() or 'titulo' in c.lower()), df.columns[0])
-                c_autor = next((c for c in df.columns if 'autor' in c.lower()), None)
-                c_resumo = next((c for c in df.columns if 'resumo' in c.lower()), None)
+        if not res.empty:
+            for _, row in res.iterrows():
+                # Definição segura das colunas
+                c_tit = next((c for c in df.columns if 'título' in c.lower() or 'titulo' in c.lower()), df.columns[0])
+                c_aut = next((c for c in df.columns if 'autor' in c.lower()), None)
+                c_res = next((c for c in df.columns if 'resumo' in c.lower()), None)
                 c_cat = next((c for c in df.columns if 'categoria' in c.lower()), None)
                 
-                titulo = row[c_titulo]
-                autor = row[c_autor] if c_autor else ""
-                resumo = row[c_resumo] if c_resumo else ""
-                categoria = row[c_cat] if c_cat else ""
-                
-                # HTML do Cartão
-                html = f"""
-                <div class="book-card">
-                    <div style="display:flex; justify-content:space-between; align-items:start;">
-                        <div class="book-title">{titulo}</div>
-                        <span class="tag">{categoria}</span>
-                    </div>
-                    <div class="book-meta">{autor}</div>
-                    <div class="book-resume">{resumo}</div>
-                </div>
-                """
-                st.markdown(html, unsafe_allow_html=True)
-        else:
-            st.warning("Nenhum livro encontrado com todos esses termos simultaneamente.")
+                st.markdown(f"""<div class="book-card">
+                    <div style="display:flex; justify-content:space-between;"><div class="book-title">{row[c_tit]}</div><span class="tag">{row[c_cat] if c_cat else ''}</span></div>
+                    <div class="book-meta">{row[c_aut] if c_aut else ''}</div>
+                    <div class="book-resume">{row[c_res] if c_res else ''}</div>
+                </div>""", unsafe_allow_html=True)
+        else: st.warning("Nada encontrado.")
 
-    # --- ABA 2: CONSULTOR IA ---
     with tab2:
-        st.markdown("### 🤖 Pergunte ao Bibliotecário")
-        
-        if "GOOGLE_API_KEY" not in st.secrets:
-            st.error("Chave API não configurada.")
-        else:
-            genai.configure(api_key=st.secrets["GOOGLE_API_KEY"])
-            pergunta = st.text_input("Qual sua dúvida?", key="input_ia")
-            
-            if st.button("Consultar IA"):
-                if pergunta:
-                    with st.spinner("Analisando acervo..."):
-                        try:
-                            model = genai.GenerativeModel('gemini-1.5-flash')
-                            # Contexto Inteligente: Usa os resultados da busca se houver
-                            if termo_input and not resultados.empty:
-                                dados_ia = resultados.head(30).to_string(index=False)
-                                aviso = f"(Baseado nos {len(resultados)} livros da sua busca)"
-                            else:
-                                dados_ia = df_exibicao.head(40).to_string(index=False)
-                                aviso = "(Baseado no acervo geral)"
-
-                            prompt = f"Use estes livros: {dados_ia}. Responda: {pergunta}"
-                            resp = model.generate_content(prompt)
-                            
-                            st.success(f"Resposta {aviso}:")
-                            st.write(resp.text)
-                            
-                        except Exception as e:
-                            st.error("⚠️ Erro de versão da API (404).")
-                            st.info("SOLUÇÃO: Delete este App no painel do Streamlit e crie um novo (New App) para limpar o cache do servidor.")
-
-else:
-    st.error("Nenhum arquivo Excel carregado.")
+        pgt = st.text_input("Pergunta à IA:")
+        if st.button("Enviar"):
+            if "GOOGLE_API_KEY" in st.secrets:
+                try:
+                    ctx = res.head(30).to_string(index=False) if termo and not res.empty else df_exibicao.head(40).to_string(index=False)
+                    resp = genai.GenerativeModel('gemini-1.5-flash').generate_content(f"Dados: {ctx}. Pergunta: {pgt}")
+                    st.write(resp.text)
+                except Exception as e: st.error(f"Erro: {e}")
+            else: st.error("Chave não configurada.")
