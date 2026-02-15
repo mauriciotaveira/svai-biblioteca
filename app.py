@@ -3,54 +3,34 @@ import pandas as pd
 import google.generativeai as genai
 import os
 import re
+import unicodedata # <--- A VACINA CONTRA ACENTOS
 
 # --- 1. CONFIGURAÇÃO VISUAL & CSS ---
 st.set_page_config(page_title="Acervo Cinema & Artes", layout="wide")
 
 st.markdown("""
 <style>
-    /* Ajuste para celular (Título menor) */
-    @media (max-width: 768px) {
-        h1 { font-size: 1.8rem !important; }
-    }
-
+    @media (max-width: 768px) { h1 { font-size: 1.8rem !important; } }
     .block-container { padding-top: 2rem; }
     
-    /* Cartão dos Livros */
     .book-card {
         background: white; padding: 20px; border-radius: 12px;
         border: 1px solid #e0e0e0; margin-bottom: 16px;
         box-shadow: 0 2px 5px rgba(0,0,0,0.05);
     }
     
-    /* Cartão da Resposta da IA */
     .ai-card {
-        background-color: #f8f9fa; 
-        border-left: 5px solid #333; 
-        padding: 20px; 
-        border-radius: 5px;
-        margin-top: 15px;
-        color: #333;
+        background-color: #f8f9fa; border-left: 5px solid #333; 
+        padding: 20px; border-radius: 5px; margin-top: 15px; color: #333;
     }
     
-    /* Botões (Estilo Unificado) */
     .stButton>button { 
-        background-color: #000; 
-        color: white; 
-        border-radius: 8px; 
-        width: 100%; 
-        height: 45px; 
-        border: none;
-        font-weight: bold;
+        background-color: #000; color: white; border-radius: 8px; 
+        width: 100%; height: 45px; border: none; font-weight: bold;
     }
-    .stButton>button:hover { 
-        background-color: #333; 
-        color: #fff;
-    }
+    .stButton>button:hover { background-color: #333; color: #fff; }
 
-    /* Títulos das Seções (h4) */
     h4 { color: #444; margin-bottom: 5px; font-weight: bold; }
-
     .tag { background: #eee; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: bold; color: #555; }
 </style>
 """, unsafe_allow_html=True)
@@ -58,7 +38,17 @@ st.markdown("""
 # --- 2. CONEXÃO ---
 api_key = st.secrets.get("GOOGLE_API_KEY")
 
-# --- 3. DADOS ---
+# --- 3. DADOS E FUNÇÕES ÚTEIS ---
+
+# Função para remover acentos (A Mágica acontece aqui)
+def normalizar_texto(texto):
+    if not isinstance(texto, str):
+        return str(texto).lower()
+    # Normaliza para NFD (separa letra do acento) e remove os acentos
+    nfkd = unicodedata.normalize('NFKD', texto)
+    texto_sem_acento = "".join([c for c in nfkd if not unicodedata.combining(c)])
+    return texto_sem_acento.lower()
+
 @st.cache_data
 def carregar_dados():
     arquivos = [f for f in os.listdir() if f.endswith('.xlsx')]
@@ -100,27 +90,34 @@ if df is not None:
         col_cat = next((c for c in df.columns if 'categoria' in c.lower()), None)
         cat_sel = st.selectbox("Categoria:", ["Todas"] + sorted([x for x in df[col_cat].unique() if len(x)>2])) if col_cat else "Todas"
         st.metric("Total de Obras", len(df))
+        
+        st.divider()
+        st.markdown("### 🌐 Link Oficial")
+        st.link_button("🔗 Abrir no Navegador", "https://svai-biblioteca-ia.streamlit.app/")
 
     df_base = df[df[col_cat] == cat_sel] if cat_sel != "Todas" and col_cat else df.copy()
     
     tab1, tab2 = st.tabs(["🔎 Pesquisa Visual", "🧠 Consultor IA"])
 
-    # --- ABA 1: PESQUISA VISUAL (Com Título e Botão) ---
+    # --- ABA 1: PESQUISA VISUAL (Agora aceita sem acento!) ---
     with tab1:
-        st.markdown("#### 🔎 Explorar Acervo") # Título adicionado
+        st.markdown("#### 🔎 Explorar Acervo") 
         
-        termo = st.text_input("Digite palavras-chave:", placeholder="Ex: montagem, roteiro, direção", label_visibility="collapsed")
-        btn_pesquisar = st.button("Pesquisar Obras") # Botão adicionado
+        termo = st.text_input("Digite palavras-chave:", placeholder="Ex: ficcao, edicao, roteiro", label_visibility="collapsed")
+        btn_pesquisar = st.button("Pesquisar Obras")
         
-        # Lógica: Funciona se apertar o botão OU se digitar e der Enter
         if termo:
-            pals = [p for p in termo.lower().split() if len(p) > 2] 
-            mask = df_base.apply(lambda r: all(p in r.astype(str).str.lower().str.cat(sep=' ') for p in pals), axis=1)
+            # 1. Limpa o termo digitado (montagem -> montagem | ficção -> ficcao)
+            termo_limpo = normalizar_texto(termo)
+            pals = [p for p in termo_limpo.split() if len(p) > 2]
+            
+            # 2. Compara com o banco de dados também limpo
+            # A função normalizar_texto é aplicada em cada linha do Excel antes de comparar
+            mask = df_base.apply(lambda r: all(p in normalizar_texto(str(r.values)) for p in pals), axis=1)
             res = df_base[mask]
         else:
-            res = pd.DataFrame() # Vazio se não tiver busca
+            res = pd.DataFrame()
 
-        # Exibição
         if not res.empty:
             st.caption(f"Encontrados: {len(res)}")
             for _, row in res.iterrows():
@@ -139,38 +136,25 @@ if df is not None:
 
     # --- ABA 2: CONSULTOR IA ---
     with tab2:
-        st.markdown("#### 💬 Chat Inteligente") # Título igual ao da Aba 1
+        st.markdown("#### 💬 Chat Inteligente")
         pgt = st.text_input("Sua dúvida:", placeholder="Ex: Qual a importância da montagem segundo os livros?", label_visibility="collapsed")
         
         if st.button("Consultar"):
             if modelo_escolhido and api_key:
                 try:
-                    # IA lê uma amostra grande do acervo (60 livros) para ter contexto rico
                     ctx = df_base.head(60).to_string(index=False)
-                    
                     model = genai.GenerativeModel(modelo_escolhido)
                     
                     prompt = f"""
                     Atue como um bibliotecário especialista em cinema e artes.
                     Use estes livros do acervo como base para sua resposta: {ctx}.
-                    
                     Pergunta do usuário: {pgt}
-                    
-                    Instruções:
-                    1. Seja detalhado, educativo e elegante.
-                    2. Cite os livros e autores do acervo que se relacionam com a pergunta.
-                    3. Use Markdown para formatar (Negrito, Listas).
+                    Instruções: Seja detalhado, educativo e elegante. Cite livros e autores. Use Markdown.
                     """
                     
                     with st.spinner("O Bibliotecário está consultando o acervo..."):
                         response = model.generate_content(prompt)
-                        
-                        st.markdown(f"""
-                        <div class="ai-card">
-                            <div style="font-weight:bold; margin-bottom:10px;">🤖 Resposta:</div>
-                            {response.text} 
-                        </div>
-                        """, unsafe_allow_html=True)
+                        st.markdown(f"""<div class="ai-card"><div style="font-weight:bold; margin-bottom:10px;">🤖 Resposta:</div>{response.text}</div>""", unsafe_allow_html=True)
                         
                 except Exception as e:
                     st.error(f"Erro: {e}")
