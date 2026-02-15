@@ -1,7 +1,6 @@
 import streamlit as st
 import pandas as pd
 import requests
-import json
 import os
 import re
 
@@ -47,6 +46,28 @@ st.title("Acervo Cinema & Artes")
 if df is not None:
     with st.sidebar:
         st.header("🗂️ Filtros")
+        
+        # --- NOVO: DETECTOR DE MODELOS (Para sabermos qual usar) ---
+        with st.expander("🛠️ Diagnóstico de API"):
+            if "GOOGLE_API_KEY" in st.secrets:
+                key = st.secrets["GOOGLE_API_KEY"]
+                if st.button("Listar Modelos Disponíveis"):
+                    try:
+                        url_list = f"https://generativelanguage.googleapis.com/v1beta/models?key={key}"
+                        resp_list = requests.get(url_list)
+                        if resp_list.status_code == 200:
+                            modelos = resp_list.json().get('models', [])
+                            nomes = [m['name'].replace('models/', '') for m in modelos if 'generateContent' in m['supportedGenerationMethods']]
+                            st.success("Modelos ativos na sua chave:")
+                            st.code("\n".join(nomes))
+                        else:
+                            st.error(f"Erro ao listar: {resp_list.status_code}")
+                    except Exception as e:
+                        st.error(f"Erro: {e}")
+            else:
+                st.warning("Sem chave configurada.")
+        # -----------------------------------------------------------
+
         col_cat = next((c for c in df.columns if 'categoria' in c.lower()), None)
         cat_sel = st.selectbox("Categoria:", ["Todas"] + sorted([x for x in df[col_cat].unique() if len(x)>2])) if col_cat else "Todas"
         st.metric("Total", len(df))
@@ -62,19 +83,14 @@ if df is not None:
             mask = df_exibicao.apply(lambda r: all(p in r.astype(str).str.lower().str.cat(sep=' ') for p in pals), axis=1)
             res = df_exibicao[mask]
         else: res = df_exibicao
-
+        
         st.write(f"Encontrados: {len(res)}")
         for _, row in res.iterrows():
             c_tit = next((c for c in df.columns if 'título' in c.lower() or 'titulo' in c.lower()), df.columns[0])
             c_aut = next((c for c in df.columns if 'autor' in c.lower()), "")
             c_res = next((c for c in df.columns if 'resumo' in c.lower()), "")
             c_ct = next((c for c in df.columns if 'categoria' in c.lower()), "")
-            
-            st.markdown(f"""<div class="book-card">
-                <div style="display:flex; justify-content:space-between;"><b>{row[c_tit]}</b><span class="tag">{row[c_ct]}</span></div>
-                <div style="color:blue; font-size:14px;">{row[c_aut]}</div>
-                <div style="font-size:15px; margin-top:5px;">{row[c_res]}</div>
-            </div>""", unsafe_allow_html=True)
+            st.markdown(f"""<div class="book-card"><div style="display:flex; justify-content:space-between;"><b>{row[c_tit]}</b><span class="tag">{row[c_ct]}</span></div><div style="color:blue;">{row[c_aut]}</div><div style="margin-top:5px;">{row[c_res]}</div></div>""", unsafe_allow_html=True)
 
     with tab2:
         pgt = st.text_input("Pergunta à IA:")
@@ -84,35 +100,29 @@ if df is not None:
                 ctx = res.head(20).to_string(index=False)
                 prompt = f"Baseado nestes livros: {ctx}. Responda: {pgt}"
                 
-                # --- SOLUÇÃO GEMINI PRO (CLÁSSICO) ---
-                # Mudamos de 'gemini-1.5-flash' para 'gemini-pro'
-                url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key={chave}"
+                # TENTATIVA 1: GEMINI 1.5 FLASH (O mais moderno e rápido)
+                # Se este falhar, olhe a lista na barra lateral para ver o nome certo!
+                modelo_escolhido = "gemini-1.5-flash"
                 
+                url = f"https://generativelanguage.googleapis.com/v1beta/models/{modelo_escolhido}:generateContent?key={chave}"
                 headers = {'Content-Type': 'application/json'}
-                data = {
-                    "contents": [{
-                        "parts": [{"text": prompt}]
-                    }]
-                }
+                data = {"contents": [{"parts": [{"text": prompt}]}]}
                 
                 try:
-                    with st.spinner("Consultando o Bibliotecário..."):
+                    with st.spinner(f"Consultando {modelo_escolhido}..."):
                         response = requests.post(url, headers=headers, json=data)
-                        
                         if response.status_code == 200:
                             resultado = response.json()
-                            # Extração segura da resposta
                             try:
-                                texto_resposta = resultado['candidates'][0]['content']['parts'][0]['text']
-                                st.info(texto_resposta)
+                                texto = resultado['candidates'][0]['content']['parts'][0]['text']
+                                st.info(texto)
                             except:
-                                st.warning("A IA respondeu, mas o formato foi inesperado.")
+                                st.warning("Erro ao ler resposta.")
                                 st.json(resultado)
                         else:
-                            st.error(f"Erro no Google ({response.status_code})")
-                            st.code(response.text)
-                            
+                            st.error(f"Erro {response.status_code}")
+                            st.write(response.json())
+                            st.info("DICA: Use o botão 'Listar Modelos' na barra lateral para ver qual nome usar.")
                 except Exception as e:
                     st.error(f"Erro de conexão: {e}")
-            else:
-                st.error("Chave não configurada.")
+            else: st.error("Chave não configurada.")
