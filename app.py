@@ -25,7 +25,7 @@ st.markdown("""
         margin-bottom: 5px;
     }
 
-    /* SUBTÍTULO - Foco na Ação */
+    /* SUBTÍTULO */
     .subtitulo-tech {
         font-family: 'Helvetica', sans-serif;
         color: #444;
@@ -57,11 +57,14 @@ st.markdown("""
         background-color: #f8f9fa; border-left: 5px solid #333; 
         padding: 20px; border-radius: 5px; margin-top: 15px; color: #333;
     }
+    
+    /* Botão Principal */
     .stButton>button { 
         background-color: #000; color: white; border-radius: 8px; 
         width: 100%; height: 50px; border: none; font-weight: bold; font-size: 16px;
     }
     .stButton>button:hover { background-color: #333; color: #fff; }
+    
     h4 { color: #000; margin-bottom: 5px; font-weight: 800; }
     .tag { background: #eee; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: bold; color: #555; text-transform: uppercase;}
 </style>
@@ -102,10 +105,10 @@ st.markdown('<div class="subtitulo-tech">Inteligência para Criar Filmes</div>',
 st.markdown('''
 <div class="box-instrucao">
     🤖 <b>Seu Assistente de Produção</b><br>
-    Use nossa tecnologia para varrer centenas de livros técnicos em segundos.<br>
-    <i>Perguntas sugeridas:</i> "Passo a passo para <span class="destaque-tech">escrever um roteiro</span>", 
-    "Técnicas de <span class="destaque-tech">montagem paralela</span>" ou 
-    "Como <span class="destaque-tech">financiar meu curta</span>?".
+    Nossa IA analisa centenas de livros técnicos para resolver seus problemas de filmagem, roteiro e edição.<br>
+    <i>Experimente perguntar:</i> "Como <span class="destaque-tech">financiar um curta</span>?", 
+    "A regra dos <span class="destaque-tech">180 graus</span>" ou 
+    "Dicas de <span class="destaque-tech">iluminação noir</span>".
 </div>
 ''', unsafe_allow_html=True)
 
@@ -135,45 +138,15 @@ if df is not None:
 
     df_base = df[df[col_cat] == cat_sel] if cat_sel != "Todas" and col_cat else df.copy()
     
-    tab1, tab2 = st.tabs(["🔎 Encontrar Técnicas", "🎬 Assistente de Produção"])
+    # --- AQUI ESTÁ A MUDANÇA: ORDEM DAS ABAS ---
+    tab1, tab2 = st.tabs(["🎬 Assistente de Produção", "📚 Encontrar Livros"])
 
-    # --- ABA 1: BUSCA PRÁTICA ---
+    # --- ABA 1: CONSULTORIA TÉCNICA (AGORA É A PRIMEIRA) ---
     with tab1:
-        st.markdown("#### 🔎 O que você quer aprender?") 
-        
-        termo = st.text_input("Digite uma habilidade:", placeholder="Ex: iluminação, roteiro, montagem", label_visibility="collapsed")
-        btn_pesquisar = st.button("Buscar Referências")
-        
-        if termo:
-            termo_limpo = normalizar_texto(termo)
-            pals = [p for p in termo_limpo.split() if len(p) > 2]
-            mask = df_base.apply(lambda r: all(p in normalizar_texto(str(r.values)) for p in pals), axis=1)
-            res = df_base[mask]
-        else:
-            res = pd.DataFrame()
-
-        if not res.empty:
-            st.caption(f"Encontramos {len(res)} guias sobre isso:")
-            for _, row in res.iterrows():
-                c_tit = next((c for c in df.columns if 'título' in c.lower() or 'titulo' in c.lower()), df.columns[0])
-                c_aut = next((c for c in df.columns if 'autor' in c.lower()), "")
-                c_res = next((c for c in df.columns if 'resumo' in c.lower()), "")
-                c_ct = next((c for c in df.columns if 'categoria' in c.lower()), "")
-                
-                st.markdown(f"""<div class="book-card">
-                    <div style="display:flex; justify-content:space-between;"><b>{row[c_tit]}</b><span class="tag">{row[c_ct]}</span></div>
-                    <div style="color:#0066cc; font-size:14px; font-weight:bold;">{row[c_aut]}</div>
-                    <div style="font-size:14px; margin-top:5px; color:#333;">{row[c_res]}</div>
-                </div>""", unsafe_allow_html=True)
-        elif termo:
-            st.info("Ainda não temos referências exatas para este termo técnico.")
-
-    # --- ABA 2: CONSULTORIA TÉCNICA ---
-    with tab2:
-        st.markdown("#### 🎬 Assistente de Produção")
+        st.markdown("#### 💬 Chat Técnico")
         st.caption("Descreva seu projeto ou dúvida técnica e a IA buscará a solução nos livros.")
         
-        pgt = st.text_input("Sua dúvida:", placeholder="Ex: Como criar suspense na edição de um filme?", label_visibility="collapsed")
+        pgt = st.text_input("Qual seu desafio hoje?", placeholder="Ex: Como criar suspense na edição de um filme?", label_visibility="collapsed")
         
         if st.button("Pedir Orientação"):
             if modelo_escolhido and api_key:
@@ -200,5 +173,37 @@ if df is not None:
                     st.error(f"Erro: {e}")
             else:
                 st.error("Verifique a chave API.")
+
+    # --- ABA 2: BUSCA DE LIVROS (AGORA É A SECUNDÁRIA) ---
+    with tab2:
+        st.markdown("#### 📚 Acervo Bibliográfico") 
+        
+        termo = st.text_input("Digite um termo para buscar livros:", placeholder="Ex: iluminação, roteiro, montagem", label_visibility="collapsed")
+        btn_pesquisar = st.button("Buscar no Acervo")
+        
+        if termo:
+            termo_limpo = normalizar_texto(termo)
+            pals = [p for p in termo_limpo.split() if len(p) > 2]
+            mask = df_base.apply(lambda r: all(p in normalizar_texto(str(r.values)) for p in pals), axis=1)
+            res = df_base[mask]
+        else:
+            res = pd.DataFrame()
+
+        if not res.empty:
+            st.caption(f"Encontramos {len(res)} obras:")
+            for _, row in res.iterrows():
+                c_tit = next((c for c in df.columns if 'título' in c.lower() or 'titulo' in c.lower()), df.columns[0])
+                c_aut = next((c for c in df.columns if 'autor' in c.lower()), "")
+                c_res = next((c for c in df.columns if 'resumo' in c.lower()), "")
+                c_ct = next((c for c in df.columns if 'categoria' in c.lower()), "")
+                
+                st.markdown(f"""<div class="book-card">
+                    <div style="display:flex; justify-content:space-between;"><b>{row[c_tit]}</b><span class="tag">{row[c_ct]}</span></div>
+                    <div style="color:#0066cc; font-size:14px; font-weight:bold;">{row[c_aut]}</div>
+                    <div style="font-size:14px; margin-top:5px; color:#333;">{row[c_res]}</div>
+                </div>""", unsafe_allow_html=True)
+        elif termo:
+            st.info("Nenhum livro encontrado com esse termo exato.")
+
 else:
     st.error("Dados não carregados.")
