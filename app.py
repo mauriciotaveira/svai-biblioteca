@@ -1,6 +1,7 @@
 import streamlit as st
 import pandas as pd
-import google.generativeai as genai
+import requests # Usaremos isso para pular a biblioteca quebrada
+import json
 import os
 import re
 
@@ -51,6 +52,7 @@ if df is not None:
         st.metric("Total", len(df))
 
     df_exibicao = df[df[col_cat] == cat_sel] if cat_sel != "Todas" and col_cat else df.copy()
+    
     tab1, tab2 = st.tabs(["🔍 Pesquisa Visual", "🤖 Consultor IA"])
 
     with tab1:
@@ -78,24 +80,34 @@ if df is not None:
         pgt = st.text_input("Pergunta à IA:")
         if st.button("Consultar"):
             if "GOOGLE_API_KEY" in st.secrets:
+                chave = st.secrets["GOOGLE_API_KEY"]
+                ctx = res.head(20).to_string(index=False)
+                prompt = f"Baseado nestes livros do acervo: {ctx}. Responda à pergunta do usuário: {pgt}"
+                
+                # --- SOLUÇÃO VIA CONEXÃO DIRETA (REST API) ---
+                # Isso ignora a biblioteca instalada e vai direto no servidor do Google
+                url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={chave}"
+                
+                headers = {'Content-Type': 'application/json'}
+                data = {
+                    "contents": [{
+                        "parts": [{"text": prompt}]
+                    }]
+                }
+                
                 try:
-                    genai.configure(api_key=st.secrets["GOOGLE_API_KEY"])
-                    
-                    # --- BLOCO DE SEGURANÇA ANTIFALHA ---
-                    try:
-                        # Tenta o modelo novo (Rápido)
-                        model = genai.GenerativeModel('gemini-1.5-flash')
-                        # Teste silencioso para ver se a versão suporta
-                        model.generate_content("teste") 
-                    except:
-                        # Se der erro 404 (versão velha), usa o modelo antigo (Pro)
-                        st.warning("⚠️ Servidor desatualizado detectado. Usando modelo de compatibilidade (Gemini Pro).")
-                        model = genai.GenerativeModel('gemini-pro')
-                    # ------------------------------------
-
-                    ctx = res.head(20).to_string(index=False)
-                    resp = model.generate_content(f"Baseado nestes livros: {ctx}. Responda: {pgt}")
-                    st.info(resp.text)
+                    with st.spinner("Conectando direto ao Google..."):
+                        response = requests.post(url, headers=headers, json=data)
+                        
+                        if response.status_code == 200:
+                            resultado = response.json()
+                            texto_resposta = resultado['candidates'][0]['content']['parts'][0]['text']
+                            st.info(texto_resposta)
+                        else:
+                            st.error(f"Erro no Google: {response.status_code}")
+                            st.code(response.text)
+                            
                 except Exception as e:
-                    st.error(f"Erro Geral: {e}")
-            else: st.error("Chave não configurada.")
+                    st.error(f"Erro de conexão: {e}")
+            else:
+                st.error("Chave não configurada.")
