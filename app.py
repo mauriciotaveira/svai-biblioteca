@@ -3,51 +3,78 @@ import pandas as pd
 import google.generativeai as genai
 import os
 import re
-import unicodedata # <--- A VACINA CONTRA ACENTOS
+import unicodedata
 
 # --- 1. CONFIGURAÇÃO VISUAL & CSS ---
-st.set_page_config(page_title="Acervo Cinema & Artes", layout="wide")
+st.set_page_config(page_title="Cine.IA | Inteligência Criativa", page_icon="🎬", layout="wide")
 
 st.markdown("""
 <style>
-    @media (max-width: 768px) { h1 { font-size: 1.8rem !important; } }
+    @media (max-width: 768px) { h1 { font-size: 2rem !important; } }
     .block-container { padding-top: 2rem; }
-    
+    .main { background-color: #ffffff; color: #000000; }
+
+    /* TÍTULO PRINCIPAL */
+    .titulo-tech {
+        font-family: 'Helvetica', 'Arial', sans-serif;
+        color: #000000;
+        font-size: 4rem;       
+        font-weight: 900;      
+        line-height: 1.0;
+        letter-spacing: -1px;
+        margin-bottom: 5px;
+    }
+
+    /* SUBTÍTULO - Foco na Ação */
+    .subtitulo-tech {
+        font-family: 'Helvetica', sans-serif;
+        color: #444;
+        font-size: 1.5rem;
+        font-weight: 400;
+        margin-bottom: 25px;
+    }
+
+    /* CAIXA DIDÁTICA */
+    .box-instrucao {
+        background-color: #f0f7ff; 
+        padding: 20px;
+        border-radius: 8px;
+        border-left: 6px solid #0066cc; 
+        color: #333;
+        font-size: 1.1rem;
+        margin-bottom: 30px;
+        line-height: 1.6;
+    }
+    .destaque-tech { font-weight: bold; color: #0066cc; }
+
+    /* Elementos Visuais */
     .book-card {
         background: white; padding: 20px; border-radius: 12px;
         border: 1px solid #e0e0e0; margin-bottom: 16px;
         box-shadow: 0 2px 5px rgba(0,0,0,0.05);
     }
-    
     .ai-card {
         background-color: #f8f9fa; border-left: 5px solid #333; 
         padding: 20px; border-radius: 5px; margin-top: 15px; color: #333;
     }
-    
     .stButton>button { 
         background-color: #000; color: white; border-radius: 8px; 
-        width: 100%; height: 45px; border: none; font-weight: bold;
+        width: 100%; height: 50px; border: none; font-weight: bold; font-size: 16px;
     }
     .stButton>button:hover { background-color: #333; color: #fff; }
-
-    h4 { color: #444; margin-bottom: 5px; font-weight: bold; }
-    .tag { background: #eee; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: bold; color: #555; }
+    h4 { color: #000; margin-bottom: 5px; font-weight: 800; }
+    .tag { background: #eee; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: bold; color: #555; text-transform: uppercase;}
 </style>
 """, unsafe_allow_html=True)
 
 # --- 2. CONEXÃO ---
 api_key = st.secrets.get("GOOGLE_API_KEY")
 
-# --- 3. DADOS E FUNÇÕES ÚTEIS ---
-
-# Função para remover acentos (A Mágica acontece aqui)
+# --- 3. DADOS E FUNÇÕES ---
 def normalizar_texto(texto):
-    if not isinstance(texto, str):
-        return str(texto).lower()
-    # Normaliza para NFD (separa letra do acento) e remove os acentos
+    if not isinstance(texto, str): return str(texto).lower()
     nfkd = unicodedata.normalize('NFKD', texto)
-    texto_sem_acento = "".join([c for c in nfkd if not unicodedata.combining(c)])
-    return texto_sem_acento.lower()
+    return "".join([c for c in nfkd if not unicodedata.combining(c)]).lower()
 
 @st.cache_data
 def carregar_dados():
@@ -69,57 +96,64 @@ def carregar_dados():
 df = carregar_dados()
 
 # --- 4. INTERFACE ---
-st.title("Acervo Cinema & Artes")
+st.markdown('<div class="titulo-tech">Cine.IA</div>', unsafe_allow_html=True)
+st.markdown('<div class="subtitulo-tech">Inteligência para Criar Filmes</div>', unsafe_allow_html=True)
+
+st.markdown('''
+<div class="box-instrucao">
+    🤖 <b>Seu Assistente de Produção</b><br>
+    Use nossa tecnologia para varrer centenas de livros técnicos em segundos.<br>
+    <i>Perguntas sugeridas:</i> "Passo a passo para <span class="destaque-tech">escrever um roteiro</span>", 
+    "Técnicas de <span class="destaque-tech">montagem paralela</span>" ou 
+    "Como <span class="destaque-tech">financiar meu curta</span>?".
+</div>
+''', unsafe_allow_html=True)
 
 if df is not None:
     # Sidebar
     with st.sidebar:
-        st.header("⚙️ Motor IA")
+        st.header("⚙️ Configuração IA")
         modelo_escolhido = None
         if api_key:
             try:
                 genai.configure(api_key=api_key)
                 modelos = [m.name for m in genai.list_models() if 'generateContent' in m.supported_generation_methods]
                 nomes_limpos = [m.replace('models/', '') for m in modelos]
-                st.success("✅ Conectado")
-                modelo_escolhido = st.selectbox("Versão do Modelo:", nomes_limpos, index=0)
-            except: st.error("Erro na chave API")
+                st.success("✅ Sistema Online")
+                modelo_escolhido = st.selectbox("Motor de Inteligência:", nomes_limpos, index=0)
+            except: st.error("Erro de Conexão")
         
         st.divider()
-        st.header("🗂️ Filtros")
+        st.header("🗂️ Filtros de Acervo")
         col_cat = next((c for c in df.columns if 'categoria' in c.lower()), None)
-        cat_sel = st.selectbox("Categoria:", ["Todas"] + sorted([x for x in df[col_cat].unique() if len(x)>2])) if col_cat else "Todas"
-        st.metric("Total de Obras", len(df))
+        cat_sel = st.selectbox("Área de Interesse:", ["Todas"] + sorted([x for x in df[col_cat].unique() if len(x)>2])) if col_cat else "Todas"
+        st.metric("Obras Técnicas", len(df))
         
         st.divider()
-        st.markdown("### 🌐 Link Oficial")
-        st.link_button("🔗 Abrir no Navegador", "https://svai-biblioteca-ia.streamlit.app/")
+        st.markdown("### 🌐 Acesso Rápido")
+        st.link_button("🔗 Abrir Cine.IA", "https://svai-biblioteca-ia.streamlit.app/")
 
     df_base = df[df[col_cat] == cat_sel] if cat_sel != "Todas" and col_cat else df.copy()
     
-    tab1, tab2 = st.tabs(["🔎 Pesquisa Visual", "🧠 Consultor IA"])
+    tab1, tab2 = st.tabs(["🔎 Encontrar Técnicas", "🎬 Assistente de Produção"])
 
-    # --- ABA 1: PESQUISA VISUAL (Agora aceita sem acento!) ---
+    # --- ABA 1: BUSCA PRÁTICA ---
     with tab1:
-        st.markdown("#### 🔎 Explorar Acervo") 
+        st.markdown("#### 🔎 O que você quer aprender?") 
         
-        termo = st.text_input("Digite palavras-chave:", placeholder="Ex: ficcao, edicao, roteiro", label_visibility="collapsed")
-        btn_pesquisar = st.button("Pesquisar Obras")
+        termo = st.text_input("Digite uma habilidade:", placeholder="Ex: iluminação, roteiro, montagem", label_visibility="collapsed")
+        btn_pesquisar = st.button("Buscar Referências")
         
         if termo:
-            # 1. Limpa o termo digitado (montagem -> montagem | ficção -> ficcao)
             termo_limpo = normalizar_texto(termo)
             pals = [p for p in termo_limpo.split() if len(p) > 2]
-            
-            # 2. Compara com o banco de dados também limpo
-            # A função normalizar_texto é aplicada em cada linha do Excel antes de comparar
             mask = df_base.apply(lambda r: all(p in normalizar_texto(str(r.values)) for p in pals), axis=1)
             res = df_base[mask]
         else:
             res = pd.DataFrame()
 
         if not res.empty:
-            st.caption(f"Encontrados: {len(res)}")
+            st.caption(f"Encontramos {len(res)} guias sobre isso:")
             for _, row in res.iterrows():
                 c_tit = next((c for c in df.columns if 'título' in c.lower() or 'titulo' in c.lower()), df.columns[0])
                 c_aut = next((c for c in df.columns if 'autor' in c.lower()), "")
@@ -128,33 +162,39 @@ if df is not None:
                 
                 st.markdown(f"""<div class="book-card">
                     <div style="display:flex; justify-content:space-between;"><b>{row[c_tit]}</b><span class="tag">{row[c_ct]}</span></div>
-                    <div style="color:blue; font-size:14px;">{row[c_aut]}</div>
+                    <div style="color:#0066cc; font-size:14px; font-weight:bold;">{row[c_aut]}</div>
                     <div style="font-size:14px; margin-top:5px; color:#333;">{row[c_res]}</div>
                 </div>""", unsafe_allow_html=True)
         elif termo:
-            st.info("Nenhum resultado encontrado para esta combinação.")
+            st.info("Ainda não temos referências exatas para este termo técnico.")
 
-    # --- ABA 2: CONSULTOR IA ---
+    # --- ABA 2: CONSULTORIA TÉCNICA ---
     with tab2:
-        st.markdown("#### 💬 Chat Inteligente")
-        pgt = st.text_input("Sua dúvida:", placeholder="Ex: Qual a importância da montagem segundo os livros?", label_visibility="collapsed")
+        st.markdown("#### 🎬 Assistente de Produção")
+        st.caption("Descreva seu projeto ou dúvida técnica e a IA buscará a solução nos livros.")
         
-        if st.button("Consultar"):
+        pgt = st.text_input("Sua dúvida:", placeholder="Ex: Como criar suspense na edição de um filme?", label_visibility="collapsed")
+        
+        if st.button("Pedir Orientação"):
             if modelo_escolhido and api_key:
                 try:
                     ctx = df_base.head(60).to_string(index=False)
                     model = genai.GenerativeModel(modelo_escolhido)
                     
                     prompt = f"""
-                    Atue como um bibliotecário especialista em cinema e artes.
-                    Use estes livros do acervo como base para sua resposta: {ctx}.
+                    Atue como um Especialista em Produção Cinematográfica (técnico e prático).
+                    O usuário quer aprender a fazer filmes. Use este acervo técnico como base: {ctx}.
                     Pergunta do usuário: {pgt}
-                    Instruções: Seja detalhado, educativo e elegante. Cite livros e autores. Use Markdown.
+                    
+                    Instruções:
+                    1. Explique o conceito de forma prática (mão na massa).
+                    2. Indique qual livro do acervo ensina isso melhor.
+                    3. Use linguagem moderna e profissional.
                     """
                     
-                    with st.spinner("O Bibliotecário está consultando o acervo..."):
+                    with st.spinner("Analisando técnicas de cinema..."):
                         response = model.generate_content(prompt)
-                        st.markdown(f"""<div class="ai-card"><div style="font-weight:bold; margin-bottom:10px;">🤖 Resposta:</div>{response.text}</div>""", unsafe_allow_html=True)
+                        st.markdown(f"""<div class="ai-card"><div style="font-weight:bold; margin-bottom:10px;">🤖 Resposta do Assistente:</div>{response.text}</div>""", unsafe_allow_html=True)
                         
                 except Exception as e:
                     st.error(f"Erro: {e}")
