@@ -1,6 +1,6 @@
 import streamlit as st
 import pandas as pd
-import requests # Usaremos isso para pular a biblioteca quebrada
+import requests
 import json
 import os
 import re
@@ -82,11 +82,11 @@ if df is not None:
             if "GOOGLE_API_KEY" in st.secrets:
                 chave = st.secrets["GOOGLE_API_KEY"]
                 ctx = res.head(20).to_string(index=False)
-                prompt = f"Baseado nestes livros do acervo: {ctx}. Responda à pergunta do usuário: {pgt}"
+                prompt = f"Baseado nestes livros: {ctx}. Responda: {pgt}"
                 
-                # --- SOLUÇÃO VIA CONEXÃO DIRETA (REST API) ---
-                # Isso ignora a biblioteca instalada e vai direto no servidor do Google
-                url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={chave}"
+                # --- SOLUÇÃO GEMINI PRO (CLÁSSICO) ---
+                # Mudamos de 'gemini-1.5-flash' para 'gemini-pro'
+                url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key={chave}"
                 
                 headers = {'Content-Type': 'application/json'}
                 data = {
@@ -96,15 +96,20 @@ if df is not None:
                 }
                 
                 try:
-                    with st.spinner("Conectando direto ao Google..."):
+                    with st.spinner("Consultando o Bibliotecário..."):
                         response = requests.post(url, headers=headers, json=data)
                         
                         if response.status_code == 200:
                             resultado = response.json()
-                            texto_resposta = resultado['candidates'][0]['content']['parts'][0]['text']
-                            st.info(texto_resposta)
+                            # Extração segura da resposta
+                            try:
+                                texto_resposta = resultado['candidates'][0]['content']['parts'][0]['text']
+                                st.info(texto_resposta)
+                            except:
+                                st.warning("A IA respondeu, mas o formato foi inesperado.")
+                                st.json(resultado)
                         else:
-                            st.error(f"Erro no Google: {response.status_code}")
+                            st.error(f"Erro no Google ({response.status_code})")
                             st.code(response.text)
                             
                 except Exception as e:
