@@ -3,158 +3,113 @@ import pandas as pd
 import google.generativeai as genai
 import os
 
-# 1. CONFIGURAÇÃO VISUAL PROFISSIONAL
-st.set_page_config(
-    page_title="Acervo Cinema & Artes",
-    layout="wide",
-    initial_sidebar_state="expanded"
-)
+# 1. CONFIGURAÇÃO VISUAL
+st.set_page_config(page_title="Acervo Cinema & Artes", layout="wide", initial_sidebar_state="expanded")
 
-# Estilo CSS para remover bordas feias e deixar elegante
-st.markdown("""
-    <style>
-    .block-container { padding-top: 2rem; }
-    /* Esconde índices de tabelas */
-    thead tr th:first-child {display:none}
-    tbody th {display:none}
-    /* Botões pretos elegantes */
-    .stButton>button {
-        background-color: #111;
-        color: white;
-        border-radius: 4px;
-        width: 100%;
-    }
-    </style>
-""", unsafe_allow_html=True)
-
-# 2. CARREGAMENTO E LIMPEZA DE DADOS (O Segredo da Elegância)
+# 2. FUNÇÃO DE LIMPEZA DE DADOS (A SALVAÇÃO DA TABELA)
 @st.cache_data
-def carregar_dados():
+def carregar_dados_inteligente():
     arquivos = [f for f in os.listdir() if f.endswith('.xlsx')]
-    if arquivos:
-        try:
-            df = pd.read_excel(arquivos[0])
-            
-            # --- LIMPEZA VISUAL (Remove colunas 'Unnamed' e linhas vazias) ---
-            # Remove colunas que o Excel cria automaticamente (Unnamed: 0, etc)
-            df = df.loc[:, ~df.columns.str.contains('^Unnamed')]
-            
-            # Substitui 'nan' (erro visual) por texto vazio
-            df = df.fillna('')
-            
-            # Garante que tudo seja texto para a busca funcionar
-            df = df.astype(str)
-            
-            return df, arquivos[0]
-        except Exception as e:
-            return None, f"Erro: {e}"
-    return None, "Aguardando arquivo .xlsx"
-
-df, nome_arquivo = carregar_dados()
-
-# 3. BARRA LATERAL (FILTROS DE CATEGORIA)
-with st.sidebar:
-    st.header("🗂️ Filtros do Acervo")
+    if not arquivos:
+        return None, "Nenhum Excel encontrado."
     
-    if df is not None:
-        # Filtro de CATEGORIA (Se existir a coluna)
-        cols_lower = [c.lower() for c in df.columns]
-        if 'categoria' in cols_lower:
-            col_cat = df.columns[cols_lower.index('categoria')]
-            categorias = sorted(list(set(df[col_cat].unique())))
-            # Remove categorias vazias da lista
-            categorias = [c for c in categorias if c != '']
-            cat_selecionada = st.selectbox("Filtrar por Categoria", ["Todas"] + categorias)
+    arquivo = arquivos[0]
+    try:
+        # A. Lê o arquivo sem cabeçalho para inspecionar
+        df_bruto = pd.read_excel(arquivo, header=None)
+        
+        # B. Procura em qual linha está a palavra "Autor" ou "Título"
+        indice_cabecalho = -1
+        for i, row in df_bruto.head(15).iterrows():
+            linha_texto = row.astype(str).str.lower().tolist()
+            # Verifica se alguma palavra chave está na linha
+            if any(x in linha_texto for x in ['autor', 'título', 'titulo', 'editora']):
+                indice_cabecalho = i
+                break
+        
+        # C. Recarrega o arquivo usando a linha correta como cabeçalho
+        if indice_cabecalho >= 0:
+            df = pd.read_excel(arquivo, header=indice_cabecalho)
         else:
-            cat_selecionada = "Todas"
+            df = pd.read_excel(arquivo) # Tenta normal se não achar
+
+        # D. Limpeza Final (Remove colunas vazias e converte para texto)
+        df = df.loc[:, ~df.columns.str.contains('^Unnamed')]
+        df = df.astype(str)
+        # Remove linhas onde tudo é 'nan'
+        df = df.replace('nan', '')
+        
+        return df, arquivo
+
+    except Exception as e:
+        return None, f"Erro Crítico: {e}"
+
+df, nome_arquivo = carregar_dados_inteligente()
+
+# 3. BARRA LATERAL (Agora vai funcionar porque achamos o cabeçalho)
+with st.sidebar:
+    st.header("🗂️ Filtros")
+    if df is not None:
+        # Tenta achar a coluna de Categoria independentemente de maiúscula/minúscula
+        col_cat = next((c for c in df.columns if c.lower() == 'categoria'), None)
+        
+        if col_cat:
+            opcoes = sorted(list(set(df[col_cat].unique())))
+            # Remove vazios da lista
+            opcoes = [x for x in opcoes if x != '' and x != 'nan']
+            filtro_cat = st.selectbox("Categoria:", ["Todas"] + opcoes)
+        else:
+            st.warning("Coluna 'Categoria' não identificada.")
+            filtro_cat = "Todas"
             
-        st.write("---")
-        st.metric("Total de Obras", len(df))
-    
-    st.info("Desenvolvido por sVAI")
+        st.metric("Obras no Acervo", len(df))
 
 # 4. ÁREA PRINCIPAL
 st.title("Acervo Cinema & Artes")
 
 if df is not None:
-    # --- APLICAÇÃO DOS FILTROS ---
-    df_exibicao = df.copy()
-    
-    # 1. Filtra por Categoria (Sidebar)
-    if cat_selecionada != "Todas":
-        col_cat = df.columns[[c.lower() for c in df.columns].index('categoria')]
-        df_exibicao = df_exibicao[df_exibicao[col_cat] == cat_selecionada]
+    # Aplica o filtro
+    if filtro_cat != "Todas" and 'col_cat' in locals() and col_cat:
+        df_exibicao = df[df[col_cat] == filtro_cat]
+    else:
+        df_exibicao = df
 
-    # Abas
-    tab_busca, tab_ia = st.tabs(["🔍 Pesquisa no Acervo", "🤖 Consultor IA"])
+    tab1, tab2 = st.tabs(["🔍 Pesquisa", "🤖 Consultor IA"])
 
-    # --- ABA 1: BUSCA INTELIGENTE ---
-    with tab_busca:
-        # Busca textual
-        termo = st.text_input("Busca Rápida:", placeholder="Digite título, autor ou assunto...")
-        
+    with tab1:
+        termo = st.text_input("Busca Rápida:", placeholder="Digite qualquer termo...")
         if termo:
-            # Busca no dataframe já filtrado pela categoria
             mask = df_exibicao.apply(lambda x: x.str.contains(termo, case=False, na=False)).any(axis=1)
-            resultado = df_exibicao[mask]
+            st.dataframe(df_exibicao[mask], use_container_width=True, hide_index=True)
         else:
-            resultado = df_exibicao
+            st.dataframe(df_exibicao, use_container_width=True, hide_index=True)
 
-        # Exibição dos Resultados
-        if not resultado.empty:
-            st.caption(f"Exibindo {len(resultado)} itens.")
-            # hide_index=True esconde a coluna de números da esquerda
-            st.dataframe(
-                resultado, 
-                use_container_width=True, 
-                hide_index=True,
-                height=500
-            )
-        else:
-            st.warning("Nenhum item encontrado com esses filtros.")
-
-    # --- ABA 2: CONSULTOR IA ---
-    with tab_ia:
-        st.markdown("### 🤖 Pergunte ao Bibliotecário")
+    with tab2:
+        st.write("### Pergunte ao Bibliotecário")
         
-        # Conexão Segura
+        # Tenta configurar a IA
+        ia_ativa = False
         if "GOOGLE_API_KEY" in st.secrets:
             try:
                 genai.configure(api_key=st.secrets["GOOGLE_API_KEY"])
-                # Modelo Flash (Rápido)
+                # Forçamos o modelo mais compatível
                 model = genai.GenerativeModel('gemini-1.5-flash')
-                api_ok = True
+                ia_ativa = True
             except:
-                api_ok = False
-        else:
-            api_ok = False
-            
-        if not api_ok:
-            st.error("⚠️ IA Indisponível (Verifique a Chave API).")
-        else:
-            pergunta = st.text_input("Dúvida sobre o conteúdo:", key="ia_query")
-            if st.button("Consultar"):
-                if pergunta:
-                    with st.spinner("Analisando acervo..."):
-                        try:
-                            # Contexto Inteligente: Usa os dados FILTRADOS
-                            # Se você filtrou "Cinema", a IA só lê livros de Cinema
-                            contexto = df_exibicao.head(60).to_string(index=False)
-                            
-                            prompt = f"""
-                            Aja como um bibliotecário culto. Use estes dados:
-                            {contexto}
-                            
-                            Responda à pergunta do usuário: "{pergunta}"
-                            Se não souber, diga que não consta no acervo atual.
-                            """
-                            
-                            response = model.generate_content(prompt)
-                            st.success("Resposta do Bibliotecário:")
-                            st.write(response.text)
-                        except Exception as e:
-                            st.error(f"Erro técnico: {e}")
-                            st.caption("Tente reiniciar o App no menu superior direito.")
+                pass
 
+        if not ia_ativa:
+            st.error("Chave API não configurada.")
+        else:
+            pergunta = st.text_input("Dúvida:")
+            if st.button("Enviar"):
+                if pergunta:
+                    try:
+                        contexto = df_exibicao.head(40).to_string()
+                        resp = model.generate_content(f"Dados: {contexto}. Pergunta: {pergunta}")
+                        st.info(resp.text)
+                    except Exception as e:
+                        st.error(f"Erro IA: {e}")
+                        st.caption("Se este erro persistir, DELETE o app no Streamlit e crie novamente.")
 else:
-    st.error("Nenhum arquivo .xlsx encontrado.")
+    st.error(f"Erro ao ler dados: {nome_arquivo}")
