@@ -3,33 +3,32 @@ import pandas as pd
 import google.generativeai as genai
 import os
 
-# 1. CONFIGURAÇÃO DA PÁGINA (Layout Profissional)
+# 1. CONFIGURAÇÃO DA PÁGINA (Interface Completa)
 st.set_page_config(
     page_title="Acervo Cinema & Artes",
     layout="wide",
-    initial_sidebar_state="expanded"  # Barra lateral aberta por padrão
+    initial_sidebar_state="expanded"
 )
 
-# 2. CONEXÃO COM A IA (Corrigido para gemini-pro)
+# 2. CONEXÃO COM A IA (Corrigida para gemini-1.5-flash)
 api_status = False
 if "GOOGLE_API_KEY" in st.secrets:
     try:
         genai.configure(api_key=st.secrets["GOOGLE_API_KEY"])
-        # Mudamos para o modelo PRO que é mais estável e evita o erro 404
-        model = genai.GenerativeModel('gemini-pro')
+        # Este é o modelo correto que substitui o antigo Pro e Flash
+        model = genai.GenerativeModel('gemini-1.5-flash')
         api_status = True
     except Exception:
         api_status = False
 
-# 3. CARREGAMENTO DE DADOS (Blindado para Excel)
+# 3. MOTOR DE DADOS (Lê Excel e prepara para busca V9)
 @st.cache_data
 def carregar_dados():
-    # Procura arquivos Excel na pasta
     arquivos = [f for f in os.listdir() if f.endswith('.xlsx')]
     if arquivos:
         try:
             df = pd.read_excel(arquivos[0])
-            # Limpeza básica: remove espaços dos nomes das colunas
+            # Remove espaços dos nomes das colunas
             df.columns = df.columns.astype(str).str.strip()
             return df, arquivos[0]
         except Exception as e:
@@ -38,107 +37,93 @@ def carregar_dados():
 
 df, nome_arquivo = carregar_dados()
 
-# 4. BARRA LATERAL (SIDEBAR) - Elementos que faltavam
+# 4. BARRA LATERAL (Visual Rico)
 with st.sidebar:
-    st.header("🗃️ Painel de Controle")
-    st.info(f"Base carregada: {nome_arquivo}")
-    
+    st.header("🗃️ Painel do Acervo")
     if df is not None:
-        st.metric("Total de Itens", len(df))
-        
-        # Filtro rápido por Ano (se houver coluna Ano)
+        st.metric("📚 Total de Obras", len(df))
+        st.write("---")
+        # Filtro de Ano (Opcional, mas mantém a lista completa se não usar)
         colunas_lower = [c.lower() for c in df.columns]
         if 'ano' in colunas_lower:
-            # Tenta encontrar a coluna correta de ano
             col_ano = df.columns[colunas_lower.index('ano')]
-            anos = sorted(df[col_ano].dropna().unique())
-            ano_selecionado = st.selectbox("Filtrar por Ano:", ["Todos"] + list(anos))
+            anos_disponiveis = sorted(df[col_ano].dropna().astype(str).unique())
+            ano_filtro = st.selectbox("Filtrar por Ano", ["Todos"] + anos_disponiveis)
         else:
-            ano_selecionado = "Todos"
-            
-    st.markdown("---")
-    st.caption("Desenvolvido com sVAI © 2025")
+            ano_filtro = "Todos"
+    else:
+        ano_filtro = "Todos"
+    
+    st.info(f"📁 Arquivo: {nome_arquivo}")
+    st.caption("Sistema sVAI v.Final")
 
 # 5. ÁREA PRINCIPAL
-st.title("📚 Acervo Cinema & Artes")
+st.title("Acervo Cinema & Artes")
 
 if df is not None:
-    # Lógica de Filtro da Sidebar
-    df_exibicao = df.copy()
-    if ano_selecionado != "Todos":
-        # Aplica o filtro se foi selecionado
+    # --- MOTOR DE FILTRO (Lógica V9 + Filtro de Ano) ---
+    df_filtrado = df.copy()
+    
+    # 1. Aplica filtro de ano se selecionado
+    if ano_filtro != "Todos":
         col_ano = df.columns[[c.lower() for c in df.columns].index('ano')]
-        df_exibicao = df[df[col_ano] == ano_selecionado]
+        df_filtrado = df_filtrado[df_filtrado[col_ano].astype(str) == ano_filtro]
 
-    # Abas Superiores
-    tab1, tab2 = st.tabs(["🔍 Pesquisa Avançada", "🤖 Consultor IA"])
+    # Abas
+    tab1, tab2 = st.tabs(["🔍 Pesquisa Geral", "🤖 Consultor IA"])
 
-    # --- ABA DE PESQUISA ---
+    # --- ABA 1: A PESQUISA QUE VOCÊ GOSTOU (MOTOR V9) ---
     with tab1:
-        col1, col2 = st.columns([3, 1])
-        with col1:
-            termo = st.text_input("🔎 Digite para buscar (Título, Autor, Assunto...):")
-        with col2:
-            st.write("") # Espaçamento
-            st.write("") 
-            limpar = st.button("Limpar Filtros")
-
-        if termo and not limpar:
-            # Busca inteligente em todo o dataframe
-            mask = df_exibicao.astype(str).apply(lambda x: x.str.contains(termo, case=False, na=False)).any(axis=1)
-            resultado = df_exibicao[mask]
+        st.write("Digite qualquer termo: Título, Autor, Editora ou Assunto.")
+        termo = st.text_input("Busca Rápida:", placeholder="Ex: Montagem, Eisenstein, 1998...")
+        
+        if termo:
+            # ESTA É A MÁGICA DA VERSÃO 9:
+            # Converte TODA a tabela para texto e busca o termo em qualquer lugar
+            mask = df_filtrado.astype(str).apply(lambda x: x.str.contains(termo, case=False, na=False)).any(axis=1)
+            resultado = df_filtrado[mask]
             
-            if not resultado.empty:
-                st.success(f"Encontrados {len(resultado)} registros para '{termo}'.")
-                st.dataframe(resultado, use_container_width=True, hide_index=True)
-            else:
-                st.warning("Nenhum resultado encontrado.")
+            st.success(f"Encontrados {len(resultado)} registros.")
+            st.dataframe(resultado, use_container_width=True, hide_index=True)
         else:
-            # Mostra tudo se não tiver busca
-            st.dataframe(df_exibicao, use_container_width=True, hide_index=True)
+            # Se não tem busca, mostra a tabela (filtrada pelo ano da sidebar)
+            st.dataframe(df_filtrado, use_container_width=True, hide_index=True)
 
-    # --- ABA DA IA ---
+    # --- ABA 2: CONSULTOR IA (CORRIGIDO) ---
     with tab2:
         st.markdown("### 🤖 Pergunte ao Bibliotecário")
-        st.write("A IA analisa os livros listados na base e responde suas dúvidas.")
         
         if not api_status:
-            st.error("⚠️ Erro de Conexão: Chave API inválida ou não configurada.")
+            st.error("⚠️ Erro de API: Chave não configurada ou inválida.")
         else:
-            col_perg, col_bt = st.columns([4, 1])
-            with col_perg:
-                pergunta = st.text_input("Ex: 'Quais livros falam sobre montagem?'", key="input_ia")
-            with col_bt:
-                st.write("")
-                st.write("")
-                enviar = st.button("Enviar 🚀")
-
-            if enviar and pergunta:
-                with st.spinner("Lendo o acervo..."):
-                    try:
-                        # Prepara os dados (Top 60 linhas para caber na memória rápida)
-                        dados_contexto = df_exibicao.head(60).to_string(index=False)
-                        
-                        prompt = f"""
-                        Você é um bibliotecário especialista em Cinema.
-                        Use os dados abaixo para responder à pergunta do usuário.
-                        Se a resposta não estiver nos dados, diga que não encontrou no acervo.
-                        
-                        DADOS DO ACERVO:
-                        {dados_contexto}
-                        
-                        PERGUNTA DO USUÁRIO:
-                        {pergunta}
-                        """
-                        
-                        response = model.generate_content(prompt)
-                        st.markdown("---")
-                        st.markdown(response.text)
-                        
-                    except Exception as e:
-                        st.error(f"A IA encontrou um problema técnico: {e}")
-                        st.caption("Dica: Tente uma pergunta mais simples.")
+            pergunta = st.text_input("Qual a sua dúvida sobre o conteúdo dos livros?", key="ia_input")
+            if st.button("Consultar IA"):
+                if pergunta:
+                    with st.spinner("Lendo o acervo..."):
+                        try:
+                            # Prepara amostra dos dados (Top 50 linhas do resultado da busca ou do total)
+                            # Se o usuário fez uma busca na outra aba, a IA usa aquele contexto!
+                            if termo and not resultado.empty:
+                                contexto = resultado.head(50).to_string(index=False)
+                                aviso = f"Baseado nos {len(resultado)} livros da sua busca:"
+                            else:
+                                contexto = df_filtrado.head(50).to_string(index=False)
+                                aviso = "Baseado nos principais livros do acervo:"
+                            
+                            prompt = f"""
+                            Você é um bibliotecário especialista. 
+                            Responda à pergunta: '{pergunta}'
+                            Use estritamente estes dados do acervo:
+                            {contexto}
+                            """
+                            
+                            response = model.generate_content(prompt)
+                            st.markdown(f"**{aviso}**")
+                            st.write(response.text)
+                            
+                        except Exception as e:
+                            st.error(f"Erro técnico na IA: {e}")
+                            st.caption("Tente novamente em alguns segundos.")
 
 else:
     st.error("⚠️ Base de dados não carregada.")
-    st.info("Verifique se o arquivo 'biblioteca.xlsx' está no GitHub.")
