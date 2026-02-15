@@ -3,113 +3,144 @@ import pandas as pd
 import google.generativeai as genai
 import os
 
-# 1. CONFIGURAÇÃO VISUAL
-st.set_page_config(page_title="Acervo Cinema & Artes", layout="wide", initial_sidebar_state="expanded")
+# 1. DESIGN VISUAL (CSS para Cartões Elegantes)
+st.set_page_config(page_title="Acervo Cinema & Artes", layout="wide")
 
-# 2. FUNÇÃO DE LIMPEZA DE DADOS (A SALVAÇÃO DA TABELA)
+st.markdown("""
+<style>
+    /* Remove espaços inúteis no topo */
+    .block-container { padding-top: 2rem; }
+    
+    /* Estilo dos Cartões de Livros */
+    .book-card {
+        background-color: #f9f9f9;
+        padding: 20px;
+        border-radius: 10px;
+        border: 1px solid #ddd;
+        margin-bottom: 15px;
+    }
+    .book-title { font-size: 22px; font-weight: bold; color: #111; margin-bottom: 5px;}
+    .book-meta { font-size: 14px; color: #666; font-style: italic; margin-bottom: 10px;}
+    .book-resume { font-size: 16px; color: #333; line-height: 1.5; }
+    
+    /* Botão Preto */
+    .stButton>button {
+        background-color: #000; color: white; border-radius: 5px; width: 100%;
+    }
+</style>
+""", unsafe_allow_html=True)
+
+# 2. CARREGAMENTO E LIMPEZA (Para tirar os 'nan' e 'Table 1')
 @st.cache_data
-def carregar_dados_inteligente():
+def carregar_acervo():
     arquivos = [f for f in os.listdir() if f.endswith('.xlsx')]
-    if not arquivos:
-        return None, "Nenhum Excel encontrado."
+    if not arquivos: return None
     
     arquivo = arquivos[0]
     try:
-        # A. Lê o arquivo sem cabeçalho para inspecionar
-        df_bruto = pd.read_excel(arquivo, header=None)
+        # Lê o arquivo bruto
+        df = pd.read_excel(arquivo, header=None)
         
-        # B. Procura em qual linha está a palavra "Autor" ou "Título"
-        indice_cabecalho = -1
-        for i, row in df_bruto.head(15).iterrows():
-            linha_texto = row.astype(str).str.lower().tolist()
-            # Verifica se alguma palavra chave está na linha
-            if any(x in linha_texto for x in ['autor', 'título', 'titulo', 'editora']):
-                indice_cabecalho = i
+        # Procura onde começa o cabeçalho real (Título/Autor)
+        inicio_real = 0
+        for i, row in df.head(10).iterrows():
+            linha = row.astype(str).str.lower().tolist()
+            if 'título' in linha or 'titulo' in linha or 'autor' in linha:
+                inicio_real = i
                 break
         
-        # C. Recarrega o arquivo usando a linha correta como cabeçalho
-        if indice_cabecalho >= 0:
-            df = pd.read_excel(arquivo, header=indice_cabecalho)
-        else:
-            df = pd.read_excel(arquivo) # Tenta normal se não achar
-
-        # D. Limpeza Final (Remove colunas vazias e converte para texto)
-        df = df.loc[:, ~df.columns.str.contains('^Unnamed')]
-        df = df.astype(str)
-        # Remove linhas onde tudo é 'nan'
-        df = df.replace('nan', '')
+        # Recarrega com o cabeçalho certo
+        df = pd.read_excel(arquivo, header=inicio_real)
         
-        return df, arquivo
-
-    except Exception as e:
-        return None, f"Erro Crítico: {e}"
-
-df, nome_arquivo = carregar_dados_inteligente()
-
-# 3. BARRA LATERAL (Agora vai funcionar porque achamos o cabeçalho)
-with st.sidebar:
-    st.header("🗂️ Filtros")
-    if df is not None:
-        # Tenta achar a coluna de Categoria independentemente de maiúscula/minúscula
-        col_cat = next((c for c in df.columns if c.lower() == 'categoria'), None)
+        # Limpeza Pesada
+        df = df.loc[:, ~df.columns.str.contains('^Unnamed')] # Remove colunas fantasmas
+        df = df.dropna(how='all') # Remove linhas totalmente vazias
+        df = df.fillna('') # Remove 'nan' visual
+        df = df.astype(str) # Garante texto para busca
         
-        if col_cat:
-            opcoes = sorted(list(set(df[col_cat].unique())))
-            # Remove vazios da lista
-            opcoes = [x for x in opcoes if x != '' and x != 'nan']
-            filtro_cat = st.selectbox("Categoria:", ["Todas"] + opcoes)
-        else:
-            st.warning("Coluna 'Categoria' não identificada.")
-            filtro_cat = "Todas"
-            
-        st.metric("Obras no Acervo", len(df))
+        return df
+    except:
+        return None
 
-# 4. ÁREA PRINCIPAL
+df = carregar_acervo()
+
+# 3. INTERFACE PRINCIPAL
 st.title("Acervo Cinema & Artes")
 
 if df is not None:
-    # Aplica o filtro
-    if filtro_cat != "Todas" and 'col_cat' in locals() and col_cat:
-        df_exibicao = df[df[col_cat] == filtro_cat]
-    else:
-        df_exibicao = df
-
-    tab1, tab2 = st.tabs(["🔍 Pesquisa", "🤖 Consultor IA"])
-
-    with tab1:
-        termo = st.text_input("Busca Rápida:", placeholder="Digite qualquer termo...")
-        if termo:
-            mask = df_exibicao.apply(lambda x: x.str.contains(termo, case=False, na=False)).any(axis=1)
-            st.dataframe(df_exibicao[mask], use_container_width=True, hide_index=True)
-        else:
-            st.dataframe(df_exibicao, use_container_width=True, hide_index=True)
-
-    with tab2:
-        st.write("### Pergunte ao Bibliotecário")
+    # Barra Lateral
+    with st.sidebar:
+        st.header("Filtros")
+        st.metric("Total de Obras", len(df))
         
-        # Tenta configurar a IA
-        ia_ativa = False
-        if "GOOGLE_API_KEY" in st.secrets:
-            try:
-                genai.configure(api_key=st.secrets["GOOGLE_API_KEY"])
-                # Forçamos o modelo mais compatível
-                model = genai.GenerativeModel('gemini-1.5-flash')
-                ia_ativa = True
-            except:
-                pass
+        # Filtro de Categoria (se existir)
+        col_cat = next((c for c in df.columns if 'categoria' in c.lower()), None)
+        cat_filtro = "Todas"
+        if col_cat:
+            opcoes = sorted([x for x in df[col_cat].unique() if x])
+            cat_filtro = st.selectbox("Categoria:", ["Todas"] + opcoes)
 
-        if not ia_ativa:
-            st.error("Chave API não configurada.")
+    # Lógica de Filtro
+    df_exibicao = df.copy()
+    if cat_filtro != "Todas" and col_cat:
+        df_exibicao = df_exibicao[df_exibicao[col_cat] == cat_filtro]
+
+    # Abas
+    tab1, tab2 = st.tabs(["🔍 Pesquisa Visual", "🤖 Consultor IA"])
+
+    # --- ABA 1: RESULTADOS EM CARTÕES (SEM PLANILHA FEIA) ---
+    with tab1:
+        termo = st.text_input("Busca Rápida:", placeholder="Digite título, autor ou assunto...")
+        
+        if termo:
+            mask = df_exibicao.apply(lambda x: x.str.contains(termo, case=False)).any(axis=1)
+            resultados = df_exibicao[mask]
         else:
-            pergunta = st.text_input("Dúvida:")
+            resultados = df_exibicao
+
+        st.markdown(f"**Exibindo {len(resultados)} obras**")
+        st.write("---")
+
+        # AQUI ESTÁ A MUDANÇA: Loop para criar cartões em vez de tabela
+        if not resultados.empty:
+            for index, row in resultados.iterrows():
+                # Tenta achar as colunas certas pelo nome (flexível)
+                c_titulo = next((c for c in df.columns if 'título' in c.lower() or 'titulo' in c.lower()), df.columns[0])
+                c_autor = next((c for c in df.columns if 'autor' in c.lower()), None)
+                c_resumo = next((c for c in df.columns if 'resumo' in c.lower()), None)
+                
+                # Monta o HTML do Cartão
+                titulo = row[c_titulo]
+                autor = row[c_autor] if c_autor else ""
+                resumo = row[c_resumo] if c_resumo else ""
+                
+                html_card = f"""
+                <div class="book-card">
+                    <div class="book-title">{titulo}</div>
+                    <div class="book-meta">{autor}</div>
+                    <div class="book-resume">{resumo}</div>
+                </div>
+                """
+                st.markdown(html_card, unsafe_allow_html=True)
+        else:
+            st.warning("Nenhum livro encontrado.")
+
+    # --- ABA 2: CONSULTOR IA (FIXADO) ---
+    with tab2:
+        if "GOOGLE_API_KEY" in st.secrets:
+            genai.configure(api_key=st.secrets["GOOGLE_API_KEY"])
+            pergunta = st.text_input("Pergunte ao Bibliotecário:")
             if st.button("Enviar"):
-                if pergunta:
-                    try:
-                        contexto = df_exibicao.head(40).to_string()
-                        resp = model.generate_content(f"Dados: {contexto}. Pergunta: {pergunta}")
-                        st.info(resp.text)
-                    except Exception as e:
-                        st.error(f"Erro IA: {e}")
-                        st.caption("Se este erro persistir, DELETE o app no Streamlit e crie novamente.")
+                try:
+                    model = genai.GenerativeModel('gemini-1.5-flash')
+                    ctx = df_exibicao.head(50).to_string()
+                    res = model.generate_content(f"Dados: {ctx}. Pergunta: {pergunta}")
+                    st.info(res.text)
+                except Exception as e:
+                    st.error(f"Erro: {e}")
+                    st.caption("Se der erro 404, delete o App no Streamlit e crie de novo.")
+        else:
+            st.error("Configure a API Key.")
+
 else:
-    st.error(f"Erro ao ler dados: {nome_arquivo}")
+    st.error("Erro na leitura do arquivo.")
