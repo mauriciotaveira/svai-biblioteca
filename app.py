@@ -10,10 +10,34 @@ st.set_page_config(page_title="Cine.IA | Inteligência Criativa", page_icon="�
 
 st.markdown("""
 <style>
+    /* --- VACINA ANTI-MODO ESCURO --- */
+    /* Força o fundo principal a ser BRANCO */
+    [data-testid="stAppViewContainer"] {
+        background-color: #ffffff !important;
+    }
+    /* Força a barra lateral a ser BRANCO GELO (para contraste suave) */
+    [data-testid="stSidebar"] {
+        background-color: #f8f9fa !important;
+    }
+    /* Força o cabeçalho a ser transparente/branco */
+    [data-testid="stHeader"] {
+        background-color: rgba(0,0,0,0) !important;
+    }
+    /* Garante que os textos padrões do Streamlit sejam pretos */
+    .stMarkdown, p, h1, h2, h3, h4, h5, h6, li {
+        color: #000000 !important;
+    }
+    /* Ajuste para inputs de texto ficarem visíveis */
+    .stTextInput input {
+        color: #000000 !important;
+        background-color: #ffffff !important;
+        border: 1px solid #ccc;
+    }
+
+    /* --- SEU DESIGN ORIGINAL --- */
     @media (max-width: 768px) { h1 { font-size: 2rem !important; } }
     .block-container { padding-top: 2rem; }
-    .main { background-color: #ffffff; color: #000000; }
-
+    
     /* TÍTULO PRINCIPAL */
     .titulo-tech {
         font-family: 'Helvetica', 'Arial', sans-serif;
@@ -141,7 +165,7 @@ if df is not None:
     # Abas na ordem correta
     tab1, tab2 = st.tabs(["🎬 Assistente de Produção", "📚 Encontrar Livros"])
 
-    # --- ABA 1: CONSULTORIA TÉCNICA (CHAT - MANTIDO EXATAMENTE IGUAL) ---
+    # --- ABA 1: CONSULTORIA TÉCNICA ---
     with tab1:
         st.markdown("#### 💬 Chat Técnico")
         st.caption("Descreva seu projeto ou dúvida técnica e a IA buscará a solução nos livros.")
@@ -174,7 +198,7 @@ if df is not None:
             else:
                 st.error("Verifique a chave API.")
 
-    # --- ABA 2: BUSCA DE LIVROS (AGORA COM FILTRO INTELIGENTE) ---
+    # --- ABA 2: BUSCA DE LIVROS (COM FILTRO) ---
     with tab2:
         st.markdown("#### 📚 Acervo Bibliográfico") 
         
@@ -183,19 +207,13 @@ if df is not None:
         
         if termo:
             termo_limpo = normalizar_texto(termo)
-            
-            # LISTA DE PALAVRAS PARA IGNORAR (STOPWORDS)
             ignorar = ['livro', 'livros', 'sobre', 'de', 'do', 'da', 'o', 'a', 'em', 'que', 'tem', 'quero', 'gostaria', 'obra', 'obras', 'guia', 'manual']
-            
-            # Filtra palavras curtas e palavras da lista 'ignorar'
             pals = [p for p in termo_limpo.split() if len(p) > 2 and p not in ignorar]
             
-            # Se sobrar alguma palavra, faz a busca
             if pals:
                 mask = df_base.apply(lambda r: all(p in normalizar_texto(str(r.values)) for p in pals), axis=1)
                 res = df_base[mask]
             else:
-                # Se a pessoa digitou só "livros sobre", não busca nada ainda
                 res = pd.DataFrame() 
         else:
             res = pd.DataFrame()
@@ -214,7 +232,6 @@ if df is not None:
                     <div style="font-size:14px; margin-top:5px; color:#333;">{row[c_res]}</div>
                 </div>""", unsafe_allow_html=True)
         elif termo:
-            # Se filtrou e não achou
             st.info("Nenhum livro encontrado com esse termo exato.")
 
 else:
