@@ -8,18 +8,16 @@ import unicodedata
 # --- 1. CONFIGURAÇÃO ---
 st.set_page_config(page_title="Cine.IA", page_icon="🎬", layout="wide")
 
-# --- 2. CSS FINAL (BOTÃO BRANCO + PLACEHOLDER CINZA) ---
+# --- 2. CSS FINAL (VISUAL PERFEITO) ---
 st.markdown("""
 <style>
     /* Força fundo branco */
-    .stApp {
-        background-color: #ffffff !important;
-    }
+    .stApp { background-color: #ffffff !important; }
 
     /* --- BOTÃO (FUNDO PRETO, TEXTO BRANCO) --- */
     div.stButton > button {
         background-color: #000000 !important;
-        color: #ffffff !important;   /* Texto Branco */
+        color: #ffffff !important;
         border: none !important;
         border-radius: 8px !important;
         font-weight: bold !important;
@@ -28,51 +26,33 @@ st.markdown("""
         background-color: #333333 !important;
         color: #ffffff !important;
     }
-    div.stButton > button:active {
-        background-color: #000000 !important;
-        color: #ffffff !important;
-    }
-    div.stButton > button p {
-        color: #ffffff !important; /* Garante texto interno branco */
-    }
+    div.stButton > button p { color: #ffffff !important; }
 
     /* --- TEXTOS GERAIS (PRETO) --- */
-    h1, h2, h3, h4, h5, h6, .stMarkdown p, .stMarkdown li, label {
+    h1, h2, h3, h4, h5, h6, .stMarkdown p, .stMarkdown li, label, div {
         color: #000000 !important;
     }
 
-    /* --- INPUTS (ONDE DIGITA) --- */
+    /* --- INPUTS --- */
     .stTextInput input {
         color: #000000 !important;
         background-color: #ffffff !important;
         border: 1px solid #ccc !important;
     }
+    ::placeholder { color: #888888 !important; font-style: italic !important; opacity: 1 !important; }
 
-    /* --- SUGESTÃO (PLACEHOLDER) --- */
-    /* Cinza e Itálico para parecer sugestão */
-    ::placeholder {
-        color: #888888 !important;
-        font-style: italic !important;
-        opacity: 1 !important;
-    }
-
-    /* --- ESTILO PERSONALIZADO --- */
+    /* --- DESIGN GERAL --- */
     .titulo-tech {
         font-family: 'Helvetica', sans-serif; 
         color: #000000 !important;
-        font-size: 3.5rem; font-weight: 900; line-height: 1.0; 
-        letter-spacing: -1px; margin-bottom: 5px;
+        font-size: 3.5rem; font-weight: 900; margin-bottom: 5px; line-height: 1.0; letter-spacing: -1px;
     }
     .subtitulo-tech {
-        font-family: 'Helvetica', sans-serif; 
-        color: #444444 !important;
-        font-size: 1.2rem; margin-bottom: 25px;
+        font-family: 'Helvetica', sans-serif; color: #444444 !important; font-size: 1.2rem; margin-bottom: 25px;
     }
     .box-instrucao {
         background-color: #f0f7ff !important; padding: 15px; border-radius: 8px;
-        border-left: 6px solid #0066cc; 
-        color: #333333 !important;
-        font-size: 1rem; margin-bottom: 30px;
+        border-left: 6px solid #0066cc; color: #333333 !important; font-size: 1rem; margin-bottom: 30px;
     }
     .destaque-tech { font-weight: bold; color: #0066cc !important; }
     
@@ -81,26 +61,17 @@ st.markdown("""
         border: 1px solid #e0e0e0; margin-bottom: 10px;
         box-shadow: 0 2px 4px rgba(0,0,0,0.05);
     }
-    .book-card b, .book-card div, .book-card span {
-        color: #000000 !important; 
-    }
+    .book-card b, .book-card span { color: #000000 !important; }
     
     .ai-card {
         background-color: #f8f9fa !important; border-left: 5px solid #333; 
-        padding: 15px; border-radius: 5px; margin-top: 15px; 
-        color: #000000 !important;
+        padding: 15px; border-radius: 5px; margin-top: 15px; color: #000000 !important;
     }
-
-    @media (max-width: 768px) { 
-        .titulo-tech { font-size: 2.5rem !important; } 
-    }
+    @media (max-width: 768px) { .titulo-tech { font-size: 2.5rem !important; } }
 </style>
 """, unsafe_allow_html=True)
 
-# --- 3. CONEXÃO ---
-api_key = st.secrets.get("GOOGLE_API_KEY")
-
-# --- 4. DADOS ---
+# --- 3. DADOS E FUNÇÕES ---
 def normalizar_texto(texto):
     if not isinstance(texto, str): return str(texto).lower()
     nfkd = unicodedata.normalize('NFKD', texto)
@@ -117,6 +88,7 @@ def carregar_dados():
             if any(x in str(row.values).lower() for x in ['título', 'autor']):
                 inicio = i; break
         df = pd.read_excel(arquivos[0], header=inicio)
+        # Limpeza pesada para garantir busca
         df = df.loc[:, ~df.columns.str.contains('^Unnamed')].dropna(how='all').fillna('').astype(str)
         col_cat = next((c for c in df.columns if 'categoria' in c.lower()), None)
         if col_cat: df[col_cat] = df[col_cat].apply(lambda x: re.sub(r'\+.*', '', str(x)).strip())
@@ -124,6 +96,30 @@ def carregar_dados():
     except: return None
 
 df = carregar_dados()
+
+# --- 4. SIDEBAR ---
+with st.sidebar:
+    st.header("⚙️ Configuração")
+    api_key = st.secrets.get("GOOGLE_API_KEY")
+    modelo_escolhido = None
+    
+    if api_key:
+        try:
+            genai.configure(api_key=api_key)
+            # Lista modelos disponíveis
+            modelos = [m.name for m in genai.list_models() if 'generateContent' in m.supported_generation_methods]
+            nomes_limpos = [m.replace('models/', '') for m in modelos]
+            st.success("✅ Online")
+            modelo_escolhido = st.selectbox("Motor IA:", nomes_limpos, index=0)
+        except: st.error("Erro Conexão")
+    
+    st.divider()
+    if df is not None:
+        col_cat = next((c for c in df.columns if 'categoria' in c.lower()), None)
+        cat_sel = st.selectbox("Filtrar Área:", ["Todas"] + sorted([x for x in df[col_cat].unique() if len(x)>2])) if col_cat else "Todas"
+        st.metric("Obras", len(df))
+        st.divider()
+        st.link_button("🔗 Abrir App", "https://svai-biblioteca-ia.streamlit.app/")
 
 # --- 5. INTERFACE ---
 st.markdown('<div class="titulo-tech">Cine.IA</div>', unsafe_allow_html=True)
@@ -139,52 +135,60 @@ st.markdown('''
 ''', unsafe_allow_html=True)
 
 if df is not None:
-    # Sidebar
-    with st.sidebar:
-        st.header("⚙️ Configuração")
-        modelo_escolhido = None
-        if api_key:
-            try:
-                genai.configure(api_key=api_key)
-                modelos = [m.name for m in genai.list_models() if 'generateContent' in m.supported_generation_methods]
-                nomes_limpos = [m.replace('models/', '') for m in modelos]
-                st.success("✅ Online")
-                modelo_escolhido = st.selectbox("Motor IA:", nomes_limpos, index=0)
-            except: st.error("Erro Conexão")
-        
-        st.divider()
-        col_cat = next((c for c in df.columns if 'categoria' in c.lower()), None)
-        cat_sel = st.selectbox("Filtrar Área:", ["Todas"] + sorted([x for x in df[col_cat].unique() if len(x)>2])) if col_cat else "Todas"
-        st.metric("Obras", len(df))
-        st.divider()
-        st.link_button("🔗 Abrir App", "https://svai-biblioteca-ia.streamlit.app/")
-
     df_base = df[df[col_cat] == cat_sel] if cat_sel != "Todas" and col_cat else df.copy()
     
-    # --- NOMES AJUSTADOS AQUI ---
     tab1, tab2 = st.tabs(["🎬 Assistente de Produção", "📚 Buscar Livros"])
 
-    # --- ABA 1 ---
+    # --- ABA 1: O CHAT INTELIGENTE (AGORA COM RANKING!) ---
     with tab1:
         st.markdown("<small style='color:#666; font-style:italic;'>Ex: 'Como criar suspense?' ou 'Técnicas de roteiro'</small>", unsafe_allow_html=True)
-        
         pgt = st.text_input("Dúvida", placeholder="Digite sua dúvida aqui...", label_visibility="collapsed")
         
         if st.button("Pedir Orientação"):
             if modelo_escolhido and api_key:
                 try:
-                    ctx = df_base.head(60).to_string(index=False)
-                    model = genai.GenerativeModel(modelo_escolhido)
-                    prompt = f"""Atue como Especialista em Cinema. Base: {ctx}. Pergunta: {pgt}.
-                    Dê dicas práticas e cite livros do acervo."""
+                    # --- AQUI ESTÁ A MÁGICA DO RANKING (Igual ao Constitucional) ---
+                    # 1. Normaliza e pega palavras-chave
+                    pgt_norm = normalizar_texto(pgt)
+                    ignorar = ['como', 'fazer', 'o', 'que', 'e', 'um', 'uma', 'de', 'do', 'da', 'para', 'com', 'livro', 'sobre']
+                    palavras = [p for p in pgt_norm.split() if p not in ignorar and len(p) > 2]
                     
-                    with st.spinner("Analisando..."):
+                    if not palavras: palavras = pgt_norm.split() # Fallback
+
+                    # 2. Pontua cada linha do Excel
+                    def pontuar(row):
+                        txt = normalizar_texto(str(row))
+                        return sum(1 for p in palavras if p in txt)
+
+                    df_base['score'] = df_base.apply(lambda r: pontuar(r.values), axis=1)
+                    
+                    # 3. Pega as 20 melhores (As que têm as palavras da busca!)
+                    melhores = df_base.sort_values('score', ascending=False).head(20)
+                    ctx = melhores.to_string(index=False)
+                    
+                    # 4. Envia para a IA
+                    model = genai.GenerativeModel(modelo_escolhido)
+                    prompt = f"""
+                    Atue como um Especialista em Cinema e Produção (Prático e Teórico).
+                    Você tem acesso a este ACERVO DE LIVROS selecionados (os mais relevantes para a pergunta estão no topo):
+                    {ctx}
+                    
+                    Pergunta do Usuário: {pgt}
+                    
+                    Instruções:
+                    1. Responda a dúvida técnica de forma didática.
+                    2. CITE OS LIVROS DO ACERVO que ajudam nesse tema. Se houver um livro específico sobre o assunto no topo da lista, dê destaque a ele.
+                    3. Se a pergunta for sobre um termo específico (ex: "Noir"), explique o termo usando o livro que fala dele.
+                    """
+                    
+                    with st.spinner("Consultando biblioteca técnica..."):
                         response = model.generate_content(prompt)
                         st.markdown(f"""<div class="ai-card"><b>🤖 Resposta:</b><br>{response.text}</div>""", unsafe_allow_html=True)
+                        
                 except Exception as e: st.error(f"Erro: {e}")
             else: st.error("Erro API")
 
-    # --- ABA 2 ---
+    # --- ABA 2: BUSCA MANUAL ---
     with tab2:
         st.markdown("<small style='color:#666; font-style:italic;'>Ex: 'montagem', 'iluminação', 'som'</small>", unsafe_allow_html=True)
         termo = st.text_input("Busca", placeholder="Digite um termo...", label_visibility="collapsed")
@@ -200,12 +204,16 @@ if df is not None:
                     res = df_base[mask]
                     if not res.empty:
                         for _, row in res.iterrows():
-                            # Ajuste para garantir que leia as colunas certas
                             vals = row.values
+                            # Tenta pegar as colunas certas dinamicamente
+                            c_tit = vals[0]
+                            c_aut = vals[1] if len(vals) > 1 else ""
+                            c_res = vals[4] if len(vals) > 4 else ""
+                            
                             st.markdown(f"""<div class="book-card">
-                                <b>{vals[0]}</b><br>
-                                <small style="color:#0066cc">{vals[1]}</small><br>
-                                <span style="font-size:13px">{vals[4] if len(vals)>4 else ''}</span>
+                                <b>{c_tit}</b><br>
+                                <small style="color:#0066cc">{c_aut}</small><br>
+                                <span style="font-size:13px">{c_res}</span>
                             </div>""", unsafe_allow_html=True)
                     else: st.info("Nada encontrado.")
                 else: st.warning("Digite um termo mais específico.")
