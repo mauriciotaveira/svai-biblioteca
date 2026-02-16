@@ -5,92 +5,98 @@ import os
 import re
 import unicodedata
 
-# --- 1. CONFIGURAÇÃO VISUAL & CSS ---
-st.set_page_config(page_title="Cine.IA | Inteligência Criativa", page_icon="🎬", layout="wide")
+# --- 1. CONFIGURAÇÃO ---
+st.set_page_config(page_title="Cine.IA", page_icon="🎬", layout="wide")
 
+# --- 2. CSS AGRESSIVO (SOLUÇÃO FINAL) ---
 st.markdown("""
 <style>
-    /* --- VACINA ANTI-MODO ESCURO (ATUALIZADA) --- */
-    
-    /* 1. Força fundo branco geral */
-    [data-testid="stAppViewContainer"] { background-color: #ffffff !important; }
-    [data-testid="stSidebar"] { background-color: #f8f9fa !important; }
-    [data-testid="stHeader"] { background-color: rgba(0,0,0,0) !important; }
-
-    /* 2. Força TEXTOS gerais a serem PRETOS */
-    .stMarkdown, p, h1, h2, h3, h4, h5, h6, li, div, span {
-        color: #000000 !important;
+    /* GARANTIA DE FUNDO BRANCO */
+    .stApp {
+        background-color: #ffffff !important;
     }
 
-    /* 3. CORREÇÃO DA CAIXA DE TEXTO (INPUT) */
-    .stTextInput input {
-        background-color: #ffffff !important; /* Fundo Branco */
-        color: #000000 !important;            /* Texto digitado Preto */
-        border: 1px solid #ccc !important;
-    }
-    
-    /* 4. CORREÇÃO DA SUGESTÃO (PLACEHOLDER) - O que estava sumindo */
-    /* Isso força o texto cinza claro a ficar cinza escuro */
-    ::placeholder {
-        color: #555555 !important; 
-        opacity: 1 !important; /* Necessário para Firefox */
-    }
-    /* Para navegadores específicos */
-    :-ms-input-placeholder { color: #555555 !important; }
-    ::-ms-input-placeholder { color: #555555 !important; }
-
-    /* 5. CORREÇÃO DO BOTÃO PRETO */
-    div.stButton > button:first-child {
-        background-color: #000000 !important; /* Fundo Preto */
-        color: #ffffff !important;            /* Texto BRANCO (Obrigatório) */
-        border: none !important;
+    /* 1. CORREÇÃO DO BOTÃO (PRETO SÓLIDO) */
+    /* Alvo em todos os tipos de botões do Streamlit */
+    div.stButton > button {
+        background-color: #000000 !important;
+        color: #ffffff !important;
+        -webkit-text-fill-color: #ffffff !important; /* Força Branco no Mobile */
+        border: 2px solid #000000 !important;
         border-radius: 8px !important;
-        height: 50px !important;
         font-weight: bold !important;
-        width: 100% !important;
     }
-    div.stButton > button:first-child:hover {
-        background-color: #333333 !important; /* Cinza escuro no mouse */
+    div.stButton > button:hover {
+        background-color: #333333 !important;
+        border-color: #333333 !important;
+    }
+    div.stButton > button:active {
+        background-color: #000000 !important;
         color: #ffffff !important;
     }
 
-    /* --- ESTILO VISUAL DO PROJETO --- */
-    @media (max-width: 768px) { h1 { font-size: 2rem !important; } }
-    .block-container { padding-top: 2rem; }
+    /* 2. CORREÇÃO DA SUGESTÃO (PLACEHOLDER) */
+    /* O segredo para Mobile: -webkit-text-fill-color */
+    ::placeholder {
+        color: #666666 !important;
+        -webkit-text-fill-color: #666666 !important; /* Essencial para Android/iOS */
+        opacity: 1 !important;
+        font-style: italic;
+    }
     
+    /* Input de Texto */
+    input.st-ai, input.st-ah, div[data-baseweb="input"] input {
+        background-color: #ffffff !important;
+        color: #000000 !important;
+        -webkit-text-fill-color: #000000 !important; /* Texto digitado PRETO */
+        caret-color: #000000 !important; /* Cursor piscando PRETO */
+    }
+
+    /* 3. DESIGN GERAL */
+    h1, h2, h3, h4, h5, h6, p, div, span, label {
+        color: #000000 !important;
+        -webkit-text-fill-color: #000000 !important;
+    }
+    
+    /* Exceções visuais */
     .titulo-tech {
-        font-family: 'Helvetica', 'Arial', sans-serif;
-        color: #000000; font-size: 4rem; font-weight: 900;      
-        line-height: 1.0; letter-spacing: -1px; margin-bottom: 5px;
+        font-family: 'Helvetica', sans-serif; 
+        font-size: 3.5rem; font-weight: 900; line-height: 1.0; 
+        letter-spacing: -1px; margin-bottom: 5px;
     }
     .subtitulo-tech {
-        font-family: 'Helvetica', sans-serif;
-        color: #444; font-size: 1.5rem; font-weight: 400; margin-bottom: 25px;
+        font-family: 'Helvetica', sans-serif; color: #444 !important; -webkit-text-fill-color: #444 !important;
+        font-size: 1.2rem; margin-bottom: 25px;
     }
     .box-instrucao {
-        background-color: #f0f7ff; padding: 20px; border-radius: 8px;
-        border-left: 6px solid #0066cc; color: #333; font-size: 1.1rem;
-        margin-bottom: 30px; line-height: 1.6;
+        background-color: #f0f7ff !important; padding: 15px; border-radius: 8px;
+        border-left: 6px solid #0066cc; color: #333 !important; -webkit-text-fill-color: #333 !important;
+        font-size: 1rem; margin-bottom: 30px;
     }
-    .destaque-tech { font-weight: bold; color: #0066cc; }
+    .destaque-tech { font-weight: bold; color: #0066cc !important; -webkit-text-fill-color: #0066cc !important; }
+    
     .book-card {
-        background: white; padding: 20px; border-radius: 12px;
-        border: 1px solid #e0e0e0; margin-bottom: 16px;
-        box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+        background: white !important; padding: 15px; border-radius: 12px;
+        border: 1px solid #e0e0e0; margin-bottom: 10px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.05);
     }
     .ai-card {
-        background-color: #f8f9fa; border-left: 5px solid #333; 
-        padding: 20px; border-radius: 5px; margin-top: 15px; color: #333;
+        background-color: #f8f9fa !important; border-left: 5px solid #333; 
+        padding: 15px; border-radius: 5px; margin-top: 15px; 
     }
-    h4 { color: #000; margin-bottom: 5px; font-weight: 800; }
-    .tag { background: #eee; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: bold; color: #555; text-transform: uppercase;}
+    .tag { background: #eee !important; padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: bold; color: #555 !important; -webkit-text-fill-color: #555 !important; text-transform: uppercase;}
+    
+    /* Ajuste responsivo */
+    @media (max-width: 768px) { 
+        .titulo-tech { font-size: 2.5rem !important; } 
+    }
 </style>
 """, unsafe_allow_html=True)
 
-# --- 2. CONEXÃO ---
+# --- 3. CONEXÃO ---
 api_key = st.secrets.get("GOOGLE_API_KEY")
 
-# --- 3. DADOS E FUNÇÕES ---
+# --- 4. DADOS ---
 def normalizar_texto(texto):
     if not isinstance(texto, str): return str(texto).lower()
     nfkd = unicodedata.normalize('NFKD', texto)
@@ -115,117 +121,89 @@ def carregar_dados():
 
 df = carregar_dados()
 
-# --- 4. INTERFACE ---
+# --- 5. INTERFACE ---
 st.markdown('<div class="titulo-tech">Cine.IA</div>', unsafe_allow_html=True)
 st.markdown('<div class="subtitulo-tech">Inteligência para Criar Filmes</div>', unsafe_allow_html=True)
 
 st.markdown('''
 <div class="box-instrucao">
     🤖 <b>Seu Assistente de Produção</b><br>
-    Nossa IA analisa centenas de livros técnicos para resolver seus problemas de filmagem, roteiro e edição.<br>
-    <i>Experimente perguntar:</i> "Como <span class="destaque-tech">financiar um curta</span>?", 
-    "A regra dos <span class="destaque-tech">180 graus</span>" ou 
-    "Dicas de <span class="destaque-tech">iluminação noir</span>".
+    Pergunte: "Como <span class="destaque-tech">financiar um curta</span>?", 
+    "Regra dos <span class="destaque-tech">180 graus</span>" ou 
+    "Dicas de <span class="destaque-tech">iluminação</span>".
 </div>
 ''', unsafe_allow_html=True)
 
 if df is not None:
     # Sidebar
     with st.sidebar:
-        st.header("⚙️ Configuração IA")
+        st.header("⚙️ Configuração")
         modelo_escolhido = None
         if api_key:
             try:
                 genai.configure(api_key=api_key)
                 modelos = [m.name for m in genai.list_models() if 'generateContent' in m.supported_generation_methods]
                 nomes_limpos = [m.replace('models/', '') for m in modelos]
-                st.success("✅ Sistema Online")
-                modelo_escolhido = st.selectbox("Motor de Inteligência:", nomes_limpos, index=0)
-            except: st.error("Erro de Conexão")
+                st.success("✅ Online")
+                modelo_escolhido = st.selectbox("Motor IA:", nomes_limpos, index=0)
+            except: st.error("Erro Conexão")
         
         st.divider()
-        st.header("🗂️ Filtros de Acervo")
         col_cat = next((c for c in df.columns if 'categoria' in c.lower()), None)
-        cat_sel = st.selectbox("Área de Interesse:", ["Todas"] + sorted([x for x in df[col_cat].unique() if len(x)>2])) if col_cat else "Todas"
-        st.metric("Obras Técnicas", len(df))
-        
+        cat_sel = st.selectbox("Filtrar Área:", ["Todas"] + sorted([x for x in df[col_cat].unique() if len(x)>2])) if col_cat else "Todas"
+        st.metric("Obras", len(df))
         st.divider()
-        st.markdown("### 🌐 Acesso Rápido")
-        st.link_button("🔗 Abrir Cine.IA", "https://svai-biblioteca-ia.streamlit.app/")
+        st.link_button("🔗 Abrir App", "https://svai-biblioteca-ia.streamlit.app/")
 
     df_base = df[df[col_cat] == cat_sel] if cat_sel != "Todas" and col_cat else df.copy()
     
-    # Abas na ordem correta
-    tab1, tab2 = st.tabs(["🎬 Assistente de Produção", "📚 Encontrar Livros"])
+    tab1, tab2 = st.tabs(["🎬 Chat Assistente", "📚 Buscar Livros"])
 
-    # --- ABA 1: CONSULTORIA TÉCNICA ---
+    # --- ABA 1 ---
     with tab1:
-        st.markdown("#### 💬 Chat Técnico")
-        st.caption("Descreva seu projeto ou dúvida técnica e a IA buscará a solução nos livros.")
+        # Texto de ajuda fixo (caso o placeholder falhe)
+        st.markdown("<small style='color:#666; font-style:italic;'>Ex: 'Como criar suspense?' ou 'Técnicas de roteiro'</small>", unsafe_allow_html=True)
         
-        pgt = st.text_input("Qual seu desafio hoje?", placeholder="Ex: Como criar suspense na edição de um filme?", label_visibility="collapsed")
+        # Input corrigido
+        pgt = st.text_input("Dúvida", placeholder="Digite sua dúvida aqui...", label_visibility="collapsed")
         
         if st.button("Pedir Orientação"):
             if modelo_escolhido and api_key:
                 try:
                     ctx = df_base.head(60).to_string(index=False)
                     model = genai.GenerativeModel(modelo_escolhido)
+                    prompt = f"""Atue como Especialista em Cinema. Base: {ctx}. Pergunta: {pgt}.
+                    Dê dicas práticas e cite livros do acervo."""
                     
-                    prompt = f"""
-                    Atue como um Especialista em Produção Cinematográfica (técnico e prático).
-                    O usuário quer aprender a fazer filmes. Use este acervo técnico como base: {ctx}.
-                    Pergunta do usuário: {pgt}
-                    
-                    Instruções:
-                    1. Explique o conceito de forma prática (mão na massa).
-                    2. Indique qual livro do acervo ensina isso melhor.
-                    3. Use linguagem moderna e profissional.
-                    """
-                    
-                    with st.spinner("Analisando técnicas de cinema..."):
+                    with st.spinner("Analisando..."):
                         response = model.generate_content(prompt)
-                        st.markdown(f"""<div class="ai-card"><div style="font-weight:bold; margin-bottom:10px;">🤖 Resposta do Assistente:</div>{response.text}</div>""", unsafe_allow_html=True)
-                        
-                except Exception as e:
-                    st.error(f"Erro: {e}")
-            else:
-                st.error("Verifique a chave API.")
+                        st.markdown(f"""<div class="ai-card"><b>🤖 Resposta:</b><br>{response.text}</div>""", unsafe_allow_html=True)
+                except Exception as e: st.error(f"Erro: {e}")
+            else: st.error("Erro API")
 
-    # --- ABA 2: BUSCA DE LIVROS (COM FILTRO) ---
+    # --- ABA 2 ---
     with tab2:
-        st.markdown("#### 📚 Acervo Bibliográfico") 
+        st.markdown("<small style='color:#666; font-style:italic;'>Ex: 'montagem', 'iluminação', 'som'</small>", unsafe_allow_html=True)
+        termo = st.text_input("Busca", placeholder="Digite um termo...", label_visibility="collapsed")
         
-        termo = st.text_input("Digite um termo para buscar livros:", placeholder="Ex: iluminação, roteiro, montagem", label_visibility="collapsed")
-        btn_pesquisar = st.button("Buscar no Acervo")
-        
-        if termo:
-            termo_limpo = normalizar_texto(termo)
-            ignorar = ['livro', 'livros', 'sobre', 'de', 'do', 'da', 'o', 'a', 'em', 'que', 'tem', 'quero', 'gostaria', 'obra', 'obras', 'guia', 'manual']
-            pals = [p for p in termo_limpo.split() if len(p) > 2 and p not in ignorar]
-            
-            if pals:
-                mask = df_base.apply(lambda r: all(p in normalizar_texto(str(r.values)) for p in pals), axis=1)
-                res = df_base[mask]
-            else:
-                res = pd.DataFrame() 
-        else:
-            res = pd.DataFrame()
-
-        if not res.empty:
-            st.caption(f"Encontramos {len(res)} obras:")
-            for _, row in res.iterrows():
-                c_tit = next((c for c in df.columns if 'título' in c.lower() or 'titulo' in c.lower()), df.columns[0])
-                c_aut = next((c for c in df.columns if 'autor' in c.lower()), "")
-                c_res = next((c for c in df.columns if 'resumo' in c.lower()), "")
-                c_ct = next((c for c in df.columns if 'categoria' in c.lower()), "")
+        if st.button("Buscar"):
+            if termo:
+                termo_limpo = normalizar_texto(termo)
+                ignorar = ['livro', 'sobre', 'de', 'do', 'que', 'tem', 'quero']
+                pals = [p for p in termo_limpo.split() if len(p) > 2 and p not in ignorar]
                 
-                st.markdown(f"""<div class="book-card">
-                    <div style="display:flex; justify-content:space-between;"><b>{row[c_tit]}</b><span class="tag">{row[c_ct]}</span></div>
-                    <div style="color:#0066cc; font-size:14px; font-weight:bold;">{row[c_aut]}</div>
-                    <div style="font-size:14px; margin-top:5px; color:#333;">{row[c_res]}</div>
-                </div>""", unsafe_allow_html=True)
-        elif termo:
-            st.info("Nenhum livro encontrado com esse termo exato.")
+                if pals:
+                    mask = df_base.apply(lambda r: all(p in normalizar_texto(str(r.values)) for p in pals), axis=1)
+                    res = df_base[mask]
+                    if not res.empty:
+                        for _, row in res.iterrows():
+                            c_tit = df.columns[0]
+                            st.markdown(f"""<div class="book-card">
+                                <b>{row.iloc[0]}</b><br>
+                                <small style="color:#0066cc">{row.iloc[1]}</small><br>
+                                <span style="font-size:13px">{row.iloc[4]}</span>
+                            </div>""", unsafe_allow_html=True)
+                    else: st.info("Nada encontrado.")
+                else: st.warning("Digite um termo mais específico.")
 
-else:
-    st.error("Dados não carregados.")
+else: st.error("Excel não carregado.")
