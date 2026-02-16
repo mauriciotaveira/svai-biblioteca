@@ -8,7 +8,7 @@ import unicodedata
 # --- 1. CONFIGURAÇÃO ---
 st.set_page_config(page_title="Cine.IA", page_icon="🎬", layout="wide")
 
-# --- 2. CSS CIRÚRGICO (CORREÇÃO DO BOTÃO) ---
+# --- 2. CSS FINAL (BOTÃO BRANCO + PLACEHOLDER CINZA) ---
 st.markdown("""
 <style>
     /* Força fundo branco */
@@ -16,8 +16,7 @@ st.markdown("""
         background-color: #ffffff !important;
     }
 
-    /* --- A CORREÇÃO DO BOTÃO ESTÁ AQUI --- */
-    /* Define explicitamente: Fundo Preto, Texto BRANCO */
+    /* --- BOTÃO (FUNDO PRETO, TEXTO BRANCO) --- */
     div.stButton > button {
         background-color: #000000 !important;
         color: #ffffff !important;   /* Texto Branco */
@@ -25,35 +24,32 @@ st.markdown("""
         border-radius: 8px !important;
         font-weight: bold !important;
     }
-    /* Garante que o texto continue branco ao passar o mouse */
     div.stButton > button:hover {
         background-color: #333333 !important;
         color: #ffffff !important;
     }
-    /* Garante que o texto continue branco ao clicar */
-    div.stButton > button:active, div.stButton > button:focus {
+    div.stButton > button:active {
         background-color: #000000 !important;
         color: #ffffff !important;
     }
-    /* E uma regra extra para garantir que elementos dentro do botão sejam brancos */
     div.stButton > button p {
-        color: #ffffff !important;
+        color: #ffffff !important; /* Garante texto interno branco */
     }
 
-    /* --- CORREÇÃO DOS TEXTOS (SEM AFETAR O BOTÃO) --- */
-    /* Apenas títulos, parágrafos e inputs ficam pretos */
-    h1, h2, h3, h4, h5, h6, .stMarkdown p, .stMarkdown li {
+    /* --- TEXTOS GERAIS (PRETO) --- */
+    h1, h2, h3, h4, h5, h6, .stMarkdown p, .stMarkdown li, label {
         color: #000000 !important;
     }
 
-    /* Input de Texto (Onde escreve) */
+    /* --- INPUTS (ONDE DIGITA) --- */
     .stTextInput input {
         color: #000000 !important;
         background-color: #ffffff !important;
         border: 1px solid #ccc !important;
     }
 
-    /* Placeholder (Sugestão) - Cinza e Itálico */
+    /* --- SUGESTÃO (PLACEHOLDER) --- */
+    /* Cinza e Itálico para parecer sugestão */
     ::placeholder {
         color: #888888 !important;
         font-style: italic !important;
@@ -86,7 +82,7 @@ st.markdown("""
         box-shadow: 0 2px 4px rgba(0,0,0,0.05);
     }
     .book-card b, .book-card div, .book-card span {
-        color: #000000 !important; /* Garante texto preto nos cards */
+        color: #000000 !important; 
     }
     
     .ai-card {
@@ -165,7 +161,8 @@ if df is not None:
 
     df_base = df[df[col_cat] == cat_sel] if cat_sel != "Todas" and col_cat else df.copy()
     
-    tab1, tab2 = st.tabs(["🎬 Chat Assistente", "📚 Buscar Livros"])
+    # --- NOMES AJUSTADOS AQUI ---
+    tab1, tab2 = st.tabs(["🎬 Assistente de Produção", "📚 Buscar Livros"])
 
     # --- ABA 1 ---
     with tab1:
