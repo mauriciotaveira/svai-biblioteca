@@ -8,85 +8,93 @@ import unicodedata
 # --- 1. CONFIGURAÇÃO ---
 st.set_page_config(page_title="Cine.IA", page_icon="🎬", layout="wide")
 
-# --- 2. CSS AGRESSIVO (SOLUÇÃO FINAL) ---
+# --- 2. CSS CIRÚRGICO (CORREÇÃO DO BOTÃO) ---
 st.markdown("""
 <style>
-    /* GARANTIA DE FUNDO BRANCO */
+    /* Força fundo branco */
     .stApp {
         background-color: #ffffff !important;
     }
 
-    /* 1. CORREÇÃO DO BOTÃO (PRETO SÓLIDO) */
-    /* Alvo em todos os tipos de botões do Streamlit */
+    /* --- A CORREÇÃO DO BOTÃO ESTÁ AQUI --- */
+    /* Define explicitamente: Fundo Preto, Texto BRANCO */
     div.stButton > button {
         background-color: #000000 !important;
-        color: #ffffff !important;
-        -webkit-text-fill-color: #ffffff !important; /* Força Branco no Mobile */
-        border: 2px solid #000000 !important;
+        color: #ffffff !important;   /* Texto Branco */
+        border: none !important;
         border-radius: 8px !important;
         font-weight: bold !important;
     }
+    /* Garante que o texto continue branco ao passar o mouse */
     div.stButton > button:hover {
         background-color: #333333 !important;
-        border-color: #333333 !important;
+        color: #ffffff !important;
     }
-    div.stButton > button:active {
+    /* Garante que o texto continue branco ao clicar */
+    div.stButton > button:active, div.stButton > button:focus {
         background-color: #000000 !important;
         color: #ffffff !important;
     }
-
-    /* 2. CORREÇÃO DA SUGESTÃO (PLACEHOLDER) */
-    /* O segredo para Mobile: -webkit-text-fill-color */
-    ::placeholder {
-        color: #666666 !important;
-        -webkit-text-fill-color: #666666 !important; /* Essencial para Android/iOS */
-        opacity: 1 !important;
-        font-style: italic;
+    /* E uma regra extra para garantir que elementos dentro do botão sejam brancos */
+    div.stButton > button p {
+        color: #ffffff !important;
     }
-    
-    /* Input de Texto */
-    input.st-ai, input.st-ah, div[data-baseweb="input"] input {
+
+    /* --- CORREÇÃO DOS TEXTOS (SEM AFETAR O BOTÃO) --- */
+    /* Apenas títulos, parágrafos e inputs ficam pretos */
+    h1, h2, h3, h4, h5, h6, .stMarkdown p, .stMarkdown li {
+        color: #000000 !important;
+    }
+
+    /* Input de Texto (Onde escreve) */
+    .stTextInput input {
+        color: #000000 !important;
         background-color: #ffffff !important;
-        color: #000000 !important;
-        -webkit-text-fill-color: #000000 !important; /* Texto digitado PRETO */
-        caret-color: #000000 !important; /* Cursor piscando PRETO */
+        border: 1px solid #ccc !important;
     }
 
-    /* 3. DESIGN GERAL */
-    h1, h2, h3, h4, h5, h6, p, div, span, label {
-        color: #000000 !important;
-        -webkit-text-fill-color: #000000 !important;
+    /* Placeholder (Sugestão) - Cinza e Itálico */
+    ::placeholder {
+        color: #888888 !important;
+        font-style: italic !important;
+        opacity: 1 !important;
     }
-    
-    /* Exceções visuais */
+
+    /* --- ESTILO PERSONALIZADO --- */
     .titulo-tech {
         font-family: 'Helvetica', sans-serif; 
+        color: #000000 !important;
         font-size: 3.5rem; font-weight: 900; line-height: 1.0; 
         letter-spacing: -1px; margin-bottom: 5px;
     }
     .subtitulo-tech {
-        font-family: 'Helvetica', sans-serif; color: #444 !important; -webkit-text-fill-color: #444 !important;
+        font-family: 'Helvetica', sans-serif; 
+        color: #444444 !important;
         font-size: 1.2rem; margin-bottom: 25px;
     }
     .box-instrucao {
         background-color: #f0f7ff !important; padding: 15px; border-radius: 8px;
-        border-left: 6px solid #0066cc; color: #333 !important; -webkit-text-fill-color: #333 !important;
+        border-left: 6px solid #0066cc; 
+        color: #333333 !important;
         font-size: 1rem; margin-bottom: 30px;
     }
-    .destaque-tech { font-weight: bold; color: #0066cc !important; -webkit-text-fill-color: #0066cc !important; }
+    .destaque-tech { font-weight: bold; color: #0066cc !important; }
     
     .book-card {
         background: white !important; padding: 15px; border-radius: 12px;
         border: 1px solid #e0e0e0; margin-bottom: 10px;
         box-shadow: 0 2px 4px rgba(0,0,0,0.05);
     }
+    .book-card b, .book-card div, .book-card span {
+        color: #000000 !important; /* Garante texto preto nos cards */
+    }
+    
     .ai-card {
         background-color: #f8f9fa !important; border-left: 5px solid #333; 
         padding: 15px; border-radius: 5px; margin-top: 15px; 
+        color: #000000 !important;
     }
-    .tag { background: #eee !important; padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: bold; color: #555 !important; -webkit-text-fill-color: #555 !important; text-transform: uppercase;}
-    
-    /* Ajuste responsivo */
+
     @media (max-width: 768px) { 
         .titulo-tech { font-size: 2.5rem !important; } 
     }
@@ -161,10 +169,8 @@ if df is not None:
 
     # --- ABA 1 ---
     with tab1:
-        # Texto de ajuda fixo (caso o placeholder falhe)
         st.markdown("<small style='color:#666; font-style:italic;'>Ex: 'Como criar suspense?' ou 'Técnicas de roteiro'</small>", unsafe_allow_html=True)
         
-        # Input corrigido
         pgt = st.text_input("Dúvida", placeholder="Digite sua dúvida aqui...", label_visibility="collapsed")
         
         if st.button("Pedir Orientação"):
@@ -197,11 +203,12 @@ if df is not None:
                     res = df_base[mask]
                     if not res.empty:
                         for _, row in res.iterrows():
-                            c_tit = df.columns[0]
+                            # Ajuste para garantir que leia as colunas certas
+                            vals = row.values
                             st.markdown(f"""<div class="book-card">
-                                <b>{row.iloc[0]}</b><br>
-                                <small style="color:#0066cc">{row.iloc[1]}</small><br>
-                                <span style="font-size:13px">{row.iloc[4]}</span>
+                                <b>{vals[0]}</b><br>
+                                <small style="color:#0066cc">{vals[1]}</small><br>
+                                <span style="font-size:13px">{vals[4] if len(vals)>4 else ''}</span>
                             </div>""", unsafe_allow_html=True)
                     else: st.info("Nada encontrado.")
                 else: st.warning("Digite um termo mais específico.")
