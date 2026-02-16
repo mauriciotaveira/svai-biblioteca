@@ -10,68 +10,69 @@ st.set_page_config(page_title="Cine.IA | Inteligência Criativa", page_icon="�
 
 st.markdown("""
 <style>
-    /* --- VACINA ANTI-MODO ESCURO --- */
-    /* Força o fundo principal a ser BRANCO */
-    [data-testid="stAppViewContainer"] {
-        background-color: #ffffff !important;
-    }
-    /* Força a barra lateral a ser BRANCO GELO (para contraste suave) */
-    [data-testid="stSidebar"] {
-        background-color: #f8f9fa !important;
-    }
-    /* Força o cabeçalho a ser transparente/branco */
-    [data-testid="stHeader"] {
-        background-color: rgba(0,0,0,0) !important;
-    }
-    /* Garante que os textos padrões do Streamlit sejam pretos */
-    .stMarkdown, p, h1, h2, h3, h4, h5, h6, li {
+    /* --- VACINA ANTI-MODO ESCURO (ATUALIZADA) --- */
+    
+    /* 1. Força fundo branco geral */
+    [data-testid="stAppViewContainer"] { background-color: #ffffff !important; }
+    [data-testid="stSidebar"] { background-color: #f8f9fa !important; }
+    [data-testid="stHeader"] { background-color: rgba(0,0,0,0) !important; }
+
+    /* 2. Força TEXTOS gerais a serem PRETOS */
+    .stMarkdown, p, h1, h2, h3, h4, h5, h6, li, div, span {
         color: #000000 !important;
-    }
-    /* Ajuste para inputs de texto ficarem visíveis */
-    .stTextInput input {
-        color: #000000 !important;
-        background-color: #ffffff !important;
-        border: 1px solid #ccc;
     }
 
-    /* --- SEU DESIGN ORIGINAL --- */
+    /* 3. CORREÇÃO DA CAIXA DE TEXTO (INPUT) */
+    .stTextInput input {
+        background-color: #ffffff !important; /* Fundo Branco */
+        color: #000000 !important;            /* Texto digitado Preto */
+        border: 1px solid #ccc !important;
+    }
+    
+    /* 4. CORREÇÃO DA SUGESTÃO (PLACEHOLDER) - O que estava sumindo */
+    /* Isso força o texto cinza claro a ficar cinza escuro */
+    ::placeholder {
+        color: #555555 !important; 
+        opacity: 1 !important; /* Necessário para Firefox */
+    }
+    /* Para navegadores específicos */
+    :-ms-input-placeholder { color: #555555 !important; }
+    ::-ms-input-placeholder { color: #555555 !important; }
+
+    /* 5. CORREÇÃO DO BOTÃO PRETO */
+    div.stButton > button:first-child {
+        background-color: #000000 !important; /* Fundo Preto */
+        color: #ffffff !important;            /* Texto BRANCO (Obrigatório) */
+        border: none !important;
+        border-radius: 8px !important;
+        height: 50px !important;
+        font-weight: bold !important;
+        width: 100% !important;
+    }
+    div.stButton > button:first-child:hover {
+        background-color: #333333 !important; /* Cinza escuro no mouse */
+        color: #ffffff !important;
+    }
+
+    /* --- ESTILO VISUAL DO PROJETO --- */
     @media (max-width: 768px) { h1 { font-size: 2rem !important; } }
     .block-container { padding-top: 2rem; }
     
-    /* TÍTULO PRINCIPAL */
     .titulo-tech {
         font-family: 'Helvetica', 'Arial', sans-serif;
-        color: #000000;
-        font-size: 4rem;       
-        font-weight: 900;      
-        line-height: 1.0;
-        letter-spacing: -1px;
-        margin-bottom: 5px;
+        color: #000000; font-size: 4rem; font-weight: 900;      
+        line-height: 1.0; letter-spacing: -1px; margin-bottom: 5px;
     }
-
-    /* SUBTÍTULO */
     .subtitulo-tech {
         font-family: 'Helvetica', sans-serif;
-        color: #444;
-        font-size: 1.5rem;
-        font-weight: 400;
-        margin-bottom: 25px;
+        color: #444; font-size: 1.5rem; font-weight: 400; margin-bottom: 25px;
     }
-
-    /* CAIXA DIDÁTICA */
     .box-instrucao {
-        background-color: #f0f7ff; 
-        padding: 20px;
-        border-radius: 8px;
-        border-left: 6px solid #0066cc; 
-        color: #333;
-        font-size: 1.1rem;
-        margin-bottom: 30px;
-        line-height: 1.6;
+        background-color: #f0f7ff; padding: 20px; border-radius: 8px;
+        border-left: 6px solid #0066cc; color: #333; font-size: 1.1rem;
+        margin-bottom: 30px; line-height: 1.6;
     }
     .destaque-tech { font-weight: bold; color: #0066cc; }
-
-    /* Elementos Visuais */
     .book-card {
         background: white; padding: 20px; border-radius: 12px;
         border: 1px solid #e0e0e0; margin-bottom: 16px;
@@ -81,14 +82,6 @@ st.markdown("""
         background-color: #f8f9fa; border-left: 5px solid #333; 
         padding: 20px; border-radius: 5px; margin-top: 15px; color: #333;
     }
-    
-    /* Botão Principal */
-    .stButton>button { 
-        background-color: #000; color: white; border-radius: 8px; 
-        width: 100%; height: 50px; border: none; font-weight: bold; font-size: 16px;
-    }
-    .stButton>button:hover { background-color: #333; color: #fff; }
-    
     h4 { color: #000; margin-bottom: 5px; font-weight: 800; }
     .tag { background: #eee; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: bold; color: #555; text-transform: uppercase;}
 </style>
