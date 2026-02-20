@@ -10,14 +10,12 @@ st.markdown("""
 <style>
     .stApp { background-color: #ffffff; }
     
-    /* Cartão do Livro */
     .book-card {
         background: #ffffff; padding: 20px; border-radius: 12px;
         border: 1px solid #d1d1d1; margin-bottom: 18px;
         box-shadow: 0 4px 6px rgba(0,0,0,0.05);
     }
     
-    /* Resposta da IA - Garantindo texto PRETO no fundo CINZA CLARO */
     .ai-response-box {
         background-color: #f0f2f6 !important; 
         color: #000000 !important; 
@@ -90,11 +88,12 @@ if df is not None:
             if api_key and pergunta:
                 try:
                     genai.configure(api_key=api_key)
-                    model = genai.GenerativeModel('gemini-2.0-flash') # Modelo 2026 estável
+                    # Usando exatamente a versão que você solicitou
+                    model = genai.GenerativeModel('gemini-2.5-flash') 
                     
-                    # CORREÇÃO DO ERRO: Selecionamos apenas o que temos certeza que existe
+                    # REDUÇÃO PARA NÃO ESTOURAR A COTA GRATUITA: De 100 para 30 livros
                     colunas_disponiveis = [c for c in ['Título', 'Autor', 'Resumo'] if c in df.columns]
-                    contexto = df[colunas_disponiveis].head(100).to_string()
+                    contexto = df[colunas_disponiveis].head(30).to_string()
                     
                     prompt_final = f"""
                     Aja como um bibliotecário e mestre em cinema. 
@@ -107,10 +106,9 @@ if df is not None:
                     
                     with st.spinner("Redigindo resposta profunda..."):
                         response = model.generate_content(prompt_final)
-                        # Exibição com contraste corrigido
                         st.markdown(f'<div class="ai-response-box">{response.text}</div>', unsafe_allow_html=True)
                 except Exception as e: 
-                    st.error(f"Erro na conexão com o Motor 2.5: {e}")
+                    st.error(f"Erro na conexão com a API: {e}")
 
     with tab2:
         st.markdown("""
@@ -134,11 +132,9 @@ if df is not None:
             if not resultados.empty:
                 cols = st.columns(2)
                 for i, (index, row) in enumerate(resultados.iterrows()):
-                    # ABNT Segura (Tenta pegar Ano, se não tiver usa s.d.)
                     titulo = row.get('Título', 'Sem Título')
                     autor_raw = row.get('Autor', '')
                     editora = row.get('Editora', 's.n.')
-                    # Procura 'Ano' ou 'Data' de forma flexível
                     ano = row.get('Ano', row.get('Data', 's.d.'))
                     if not str(ano).strip(): ano = "s.d."
 
