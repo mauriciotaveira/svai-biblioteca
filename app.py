@@ -88,17 +88,21 @@ if df is not None:
             if api_key and pergunta:
                 try:
                     genai.configure(api_key=api_key)
-                    # Usando exatamente a versão que você solicitou
                     model = genai.GenerativeModel('gemini-2.5-flash') 
                     
-                    # REDUÇÃO PARA NÃO ESTOURAR A COTA GRATUITA: De 100 para 30 livros
+                    # Mantemos 30 livros para evitar o erro de cota
                     colunas_disponiveis = [c for c in ['Título', 'Autor', 'Resumo'] if c in df.columns]
                     contexto = df[colunas_disponiveis].head(30).to_string()
                     
+                    # PROMPT ATUALIZADO: Foco no tom e na prioridade temática
                     prompt_final = f"""
-                    Aja como um bibliotecário e mestre em cinema. 
-                    Responda de forma longa, dissertativa e profunda à pergunta abaixo. 
-                    Não use listas de tópicos simples. Conecte as ideias dos livros do acervo.
+                    Você é um especialista em cinema. Responda à pergunta do usuário baseado APENAS no acervo fornecido.
+                    
+                    DIRETRIZES DE ESTILO E CONTEÚDO:
+                    1. TOM: Seja elegante, claro e direto. Evite formalidade excessiva, jargões pedantes ou saudações exageradas (não use termos como "Caríssimo pesquisador" ou "é com grande prazer").
+                    2. ESTRUTURA: Escreva um texto fluido e dissertativo. Não use listas de tópicos.
+                    3. PRIORIDADE: Busque primeiro a obra ou autor que trate diretamente do assunto principal da pergunta (ex: se perguntarem sobre Film Noir, procure obras que citem o gênero diretamente antes de teorizar com autores gerais).
+                    4. PROFUNDIDADE: Conecte as ideias dos livros de forma inteligente para explicar os conceitos.
                     
                     Acervo: {contexto}
                     Pergunta: {pergunta}
