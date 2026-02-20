@@ -139,7 +139,7 @@ if df is not None:
     
     tab1, tab2 = st.tabs(["🎬 Assistente de Produção", "📚 Buscar Livros"])
 
-    # --- ABA 1: O CHAT INTELIGENTE (AGORA COM RANKING!) ---
+    # --- ABA 1: O CHAT INTELIGENTE (AGORA COM RANKING E CATALOGAÇÃO!) ---
     with tab1:
         st.markdown("<small style='color:#666; font-style:italic;'>Ex: 'Como criar suspense?' ou 'Técnicas de roteiro'</small>", unsafe_allow_html=True)
         pgt = st.text_input("Dúvida", placeholder="Digite sua dúvida aqui...", label_visibility="collapsed")
@@ -161,7 +161,7 @@ if df is not None:
 
                     df_base['score'] = df_base.apply(lambda r: pontuar(r.values), axis=1)
                     
-                    # 3. Pega as 20 melhores (As que têm as palavras da busca!)
+                    # 3. Pega as 20 melhores
                     melhores = df_base.sort_values('score', ascending=False).head(20)
                     ctx = melhores.to_string(index=False)
                     
@@ -169,23 +169,30 @@ if df is not None:
                     model = genai.GenerativeModel(modelo_escolhido)
                     
                     # ==============================================================
-                    # O NOVO PROMPT (COM REGRAS DE BIBLIOTECONOMIA / ABNT)
+                    # O NOVO PROMPT (NÍVEL "CHEFÃO FINAL" DA BIBLIOTECONOMIA)
                     # ==============================================================
                     prompt = f"""
-                    Atue como o Cine.IA, um Especialista em Cinema e Produção, mas operando com o rigor acadêmico de um Bibliotecário Sênior.
-                    Você tem acesso a este ACERVO DE LIVROS selecionados (os mais relevantes para a pergunta estão no topo):
+                    Atue como o Cine.IA, um Especialista em Cinema, operando com o rigor acadêmico de um Bibliotecário Chefe Catalogador.
+                    Você tem acesso a este ACERVO DE LIVROS selecionados:
                     {ctx}
                     
                     Pergunta do Usuário: {pgt}
                     
                     Instruções:
-                    1. Responda a dúvida técnica de forma didática e clara.
+                    1. Responda à dúvida técnica de forma didática.
                     2. CITE OS LIVROS DO ACERVO que ajudam nesse tema.
-                    3. OBRIGATORIAMENTE, crie uma seção no final chamada "REFERÊNCIAS" e liste todas as obras mencionadas usando o rigoroso padrão ABNT (Associação Brasileira de Normas Técnicas).
+                    3. OBRIGATORIAMENTE, crie uma seção no final chamada "REFERÊNCIAS CATALOGRÁFICAS".
                     
-                    REGRAS RÍGIDAS DE FORMATAÇÃO (BIBLIOTECONOMIA / ABNT):
-                    - Para Filmes/Audiovisual: TÍTULO DO FILME (em letras maiúsculas). Direção: Nome do Diretor. Produção: Nome do Produtor ou Estúdio. Local (País): Produtora, Ano de lançamento.
-                    - Para Livros: SOBRENOME DO AUTOR (em maiúsculas), Nome do Autor. Título da obra: subtítulo. Número da edição. Local de publicação (Cidade): Editora, Ano. (Se faltarem dados de cidade ou ano no acervo fornecido, utilize as convenções [S.l.] ou [s.d.]).
+                    REGRAS RÍGIDAS DE FORMATAÇÃO (ABNT + CATALOGAÇÃO DE ESTANTE):
+                    Para cada livro citado, você deve apresentar:
+                    - A Referência ABNT: SOBRENOME DO AUTOR, Nome. Título da obra. Local: Editora, Ano. (Use [S.l.] e [s.d.] se faltar dado).
+                    - CDD (Classificação Decimal de Dewey): Atribua o número CDD correto baseado no tema do livro (Ex: Cinema é 791.43).
+                    - Número de Chamada: Crie o número de chamada completo usando a Tabela Cutter-Sanborn (letra do autor + números + letra do título).
+                    
+                    Exemplo de saída esperada:
+                    COUSINS, Mark. História do Cinema. [S.l.]: Martins Fontes, [s.d.].
+                    CDD: 791.4309
+                    Chamada: 791.4309 C836h
                     """
                     # ==============================================================
 
@@ -196,7 +203,7 @@ if df is not None:
                 except Exception as e: st.error(f"Erro: {e}")
             else: st.error("Erro API")
 
-   # --- ABA 2: BUSCA MANUAL (LEITURA DIRETA DO EXCEL) ---
+    # --- ABA 2: BUSCA MANUAL (PRONTA PARA CDD E CHAMADA) ---
     with tab2:
         st.markdown("<small style='color:#666; font-style:italic;'>Ex: 'montagem', 'iluminação', 'som'</small>", unsafe_allow_html=True)
         termo = st.text_input("Busca", placeholder="Digite um termo...", label_visibility="collapsed")
@@ -221,40 +228,38 @@ if df is not None:
                     mask = df_base.apply(lambda r: all(p in normalizar_texto(str(r.values)) for p in pals), axis=1)
                     res = df_base[mask]
                     if not res.empty:
+                        
+                        cols = [str(c).lower() for c in df_base.columns]
+                        # Caça-Colunas atualizado para CDD e Chamada
+                        idx_cdd = next((i for i, c in enumerate(cols) if 'cdd' in c or 'classificação' in c), None)
+                        idx_chamada = next((i for i, c in enumerate(cols) if 'chamada' in c or 'cutter' in c), None)
+                        
                         for _, row in res.iterrows():
                             vals = row.values
                             
-                            # Mapeamento EXATO baseado no seu PDF:
-                            # 0: Título | 1: Autor | 2: Editora | 3: Categoria | 4: Resumo
                             c_tit = str(vals[0]).strip()
                             c_aut = str(vals[1]).strip() if len(vals) > 1 else ""
                             c_editora = str(vals[2]).strip() if len(vals) > 2 else ""
                             c_res = str(vals[4]).strip() if len(vals) > 4 else ""
                             
-                            # Tratamento rigoroso para Editora
-                            if c_editora.lower() in ['nan', '', 'falta editora']: 
-                                c_editora = "[s.n.]"
-                                
-                            # Como Ano e Cidade não existem no seu Excel, aplicamos a regra fixa:
+                            # Captura CDD e Chamada se existirem no Excel
+                            c_cdd = str(vals[idx_cdd]).strip() if idx_cdd is not None and len(vals) > idx_cdd else "[Sem CDD no Acervo]"
+                            c_chamada = str(vals[idx_chamada]).strip() if idx_chamada is not None and len(vals) > idx_chamada else "[Sem Chamada no Acervo]"
+                            
+                            if c_editora.lower() in ['nan', '', 'falta editora']: c_editora = "[s.n.]"
+                            if c_cdd.lower() in ['nan', '']: c_cdd = "[Sem CDD no Acervo]"
+                            if c_chamada.lower() in ['nan', '']: c_chamada = "[Sem Chamada no Acervo]"
+                            
                             c_ano = "[s.d.]"
                             c_cidade = "[S.l.]"
                             
-                            # Formata o autor
                             autor_abnt = formatar_autor_abnt(c_aut)
-                            
-                            # Monta a Citação Bibliográfica
                             citacao_abnt = f"{autor_abnt}. <b>{c_tit}</b>. {c_cidade}: {c_editora}, {c_ano}."
                             
+                            # O novo cartão visual com a área de Catalogação!
                             html_card = (
                                 f'<div class="book-card">'
-                                f'<p style="margin-bottom: 10px; font-size: 15px; color: #000;">{citacao_abnt}</p>'
-                                f'<hr style="margin: 5px 0; border-top: 1px solid #eee;">'
-                                f'<p style="font-size:13px; color: #333; margin-top: 10px;"><b>Resumo:</b> {c_res}</p>'
-                                f'</div>'
-                            )
-                            st.markdown(html_card, unsafe_allow_html=True)
-                            
-                    else: st.info("Nada encontrado.")
-                else: st.warning("Digite um termo mais específico.")
-
-else: st.error("Excel não carregado.")
+                                f'<p style="margin-bottom: 5px; font-size: 15px; color: #000;">{citacao_abnt}</p>'
+                                f'<div style="background-color: #f0f0f0; padding: 5px; border-radius: 4px; font-family: monospace; font-size: 12px; color: #555; margin-bottom: 10px;">'
+                                f'<b>CDD:</b> {c_cdd} | <b>Chamada:</b> {c_chamada}'
+                                f
