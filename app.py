@@ -218,5 +218,19 @@ if df is not None:
                             c_aut = vals[1] if len(vals) > 1 else ""
                             c_res = vals[4] if len(vals) > 4 else ""
                             
-                            st.markdown(f"""<div class="book-card">
-                                <b>{c_tit}</b><br>
+                            # ==========================================
+                            # CORREÇÃO AQUI: String segura, sem aspas triplas!
+                            # ==========================================
+                            html_card = (
+                                f'<div class="book-card">'
+                                f'<b>{c_tit}</b><br>'
+                                f'<small style="color:#0066cc">{c_aut}</small><br>'
+                                f'<span style="font-size:13px">{c_res}</span>'
+                                f'</div>'
+                            )
+                            st.markdown(html_card, unsafe_allow_html=True)
+                            
+                    else: st.info("Nada encontrado.")
+                else: st.warning("Digite um termo mais específico.")
+
+else: st.error("Excel não carregado.")
