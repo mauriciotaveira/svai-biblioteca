@@ -196,11 +196,22 @@ if df is not None:
                 except Exception as e: st.error(f"Erro: {e}")
             else: st.error("Erro API")
 
-    # --- ABA 2: BUSCA MANUAL ---
+    # --- ABA 2: BUSCA MANUAL (COM FORMATADOR ABNT) ---
     with tab2:
         st.markdown("<small style='color:#666; font-style:italic;'>Ex: 'montagem', 'iluminação', 'som'</small>", unsafe_allow_html=True)
         termo = st.text_input("Busca", placeholder="Digite um termo...", label_visibility="collapsed")
         
+        # Mini-função para inverter o nome do autor para ABNT (Ex: Marcia Ortegosa -> ORTEGOSA, Marcia)
+        def formatar_autor_abnt(autor):
+            if not autor or str(autor).strip() == "" or str(autor).lower() == "nan": 
+                return "[Autor Desconhecido]"
+            partes = str(autor).strip().split()
+            if len(partes) == 1: 
+                return partes[0].upper()
+            sobrenome = partes[-1].upper()
+            resto = " ".join(partes[:-1])
+            return f"{sobrenome}, {resto}"
+
         if st.button("Buscar"):
             if termo:
                 termo_limpo = normalizar_texto(termo)
@@ -213,19 +224,24 @@ if df is not None:
                     if not res.empty:
                         for _, row in res.iterrows():
                             vals = row.values
-                            # Tenta pegar as colunas certas dinamicamente
-                            c_tit = vals[0]
-                            c_aut = vals[1] if len(vals) > 1 else ""
-                            c_res = vals[4] if len(vals) > 4 else ""
+                            # Pegar dados do Excel
+                            c_tit = str(vals[0]).strip()
+                            c_aut = str(vals[1]).strip() if len(vals) > 1 else ""
+                            c_res = str(vals[4]).strip() if len(vals) > 4 else ""
                             
-                            # ==========================================
-                            # CORREÇÃO AQUI: String segura, sem aspas triplas!
-                            # ==========================================
+                            # Transforma o autor para o padrão
+                            autor_abnt = formatar_autor_abnt(c_aut)
+                            
+                            # Monta a Citação Bibliográfica
+                            # Usa [S.l.] (Sem local) e [s.n.] (Sem editora) caso não tenha no seu Excel básico
+                            citacao_abnt = f"{autor_abnt}. <b>{c_tit}</b>. [S.l.]: [s.n.], [s.d.]."
+                            
+                            # Desenha o cartão na tela de forma segura (sem aspas triplas)
                             html_card = (
                                 f'<div class="book-card">'
-                                f'<b>{c_tit}</b><br>'
-                                f'<small style="color:#0066cc">{c_aut}</small><br>'
-                                f'<span style="font-size:13px">{c_res}</span>'
+                                f'<p style="margin-bottom: 10px; font-size: 15px; color: #000;">{citacao_abnt}</p>'
+                                f'<hr style="margin: 5px 0; border-top: 1px solid #eee;">'
+                                f'<p style="font-size:13px; color: #333; margin-top: 10px;"><b>Resumo:</b> {c_res}</p>'
                                 f'</div>'
                             )
                             st.markdown(html_card, unsafe_allow_html=True)
