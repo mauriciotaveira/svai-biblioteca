@@ -8,19 +8,16 @@ st.set_page_config(page_title="Cine.IA - Gestão de Acervo", layout="wide")
 
 st.markdown("""
 <style>
-    /* Fundo geral da página para evitar temas automáticos ruins */
     .stApp { background-color: #ffffff; }
-
-    /* Cartão do Livro com alto contraste */
+    
+    /* Cartão do Livro */
     .book-card {
         background: #ffffff; padding: 20px; border-radius: 12px;
         border: 1px solid #d1d1d1; margin-bottom: 18px;
         box-shadow: 0 4px 6px rgba(0,0,0,0.05);
     }
-    .book-card h4 { color: #000000 !important; margin: 0; }
-    .book-card p { color: #1a1a1a !important; line-height: 1.6; }
-
-    /* Caixa de Resposta da IA - FUNDO CINZA NEUTRO, FONTE ESCURA */
+    
+    /* Resposta da IA - Garantindo texto PRETO no fundo CINZA CLARO */
     .ai-response-box {
         background-color: #f0f2f6 !important; 
         color: #000000 !important; 
@@ -32,29 +29,19 @@ st.markdown("""
         margin-top: 20px;
     }
 
-    /* Guia de Navegação */
     .guide-box { 
-        background-color: #f8f9fa; 
-        padding: 20px; 
-        border-radius: 8px; 
-        border: 1px solid #dee2e6; 
-        color: #212529; 
-        margin-bottom: 25px; 
+        background-color: #f8f9fa; padding: 20px; border-radius: 8px; 
+        border: 1px solid #dee2e6; color: #212529; margin-bottom: 25px; 
     }
 
-    /* Botões Pretos com texto Branco fixo */
     .stButton>button { 
-        background-color: #000000 !important; 
-        color: #ffffff !important; 
-        font-weight: bold;
-        border: none;
-        padding: 10px 20px;
+        background-color: #000000 !important; color: #ffffff !important; 
+        font-weight: bold; border: none; padding: 10px 20px;
     }
     
-    /* CDD e ABNT */
     .cdd-box {
         background-color: #e9ecef; padding: 10px; border-radius: 6px;
-        font-family: 'Courier New', Courier, monospace; font-size: 13px; color: #000;
+        font-family: monospace; font-size: 13px; color: #000;
         border-left: 5px solid #000; margin-top: 12px;
     }
     .abnt-text { font-size: 11px; color: #444; margin-top: 12px; }
@@ -65,9 +52,11 @@ st.markdown("""
 @st.cache_data
 def load_data():
     if not os.path.exists("biblioteca.xlsx"): return None
-    df = pd.read_excel("biblioteca.xlsx")
-    df.columns = df.columns.str.strip()
-    return df.fillna("")
+    try:
+        df = pd.read_excel("biblioteca.xlsx")
+        df.columns = df.columns.str.strip()
+        return df.fillna("")
+    except: return None
 
 df = load_data()
 
@@ -94,30 +83,31 @@ if df is not None:
         </div>
         """, unsafe_allow_html=True)
         
-        pergunta = st.text_area("Sua consulta técnica:", height=150, placeholder="Ex: Explique o processo de montagem e sua importância narrativa...")
+        pergunta = st.text_area("Sua consulta técnica:", height=150)
         
         if st.button("Obter Resposta Técnica"):
             api_key = st.secrets.get("GOOGLE_API_KEY")
             if api_key and pergunta:
                 try:
                     genai.configure(api_key=api_key)
-                    model = genai.GenerativeModel('gemini-2.5-flash') 
-                    contexto = df[['Título', 'Autor', 'Resumo', 'Ano']].head(100).to_string()
+                    model = genai.GenerativeModel('gemini-2.0-flash') # Modelo 2026 estável
                     
-                    # PROMPT MELHORADO PARA EVITAR LISTAS SUPERFICIAIS
+                    # CORREÇÃO DO ERRO: Selecionamos apenas o que temos certeza que existe
+                    colunas_disponiveis = [c for c in ['Título', 'Autor', 'Resumo'] if c in df.columns]
+                    contexto = df[colunas_disponiveis].head(100).to_string()
+                    
                     prompt_final = f"""
-                    Você é um especialista em cinema e bibliotecário sênior.
-                    Baseado EXCLUSIVAMENTE no acervo abaixo, responda à pergunta do usuário.
-                    IMPORTANTE: Não faça apenas uma lista de tópicos. Escreva um texto longo, fluido, dissertativo e profundo. 
-                    Encadeie as ideias dos autores (como Eisenstein, Murch e Amiel) para explicar os conceitos.
-                    Cite as obras ao longo do texto de forma elegante.
+                    Aja como um bibliotecário e mestre em cinema. 
+                    Responda de forma longa, dissertativa e profunda à pergunta abaixo. 
+                    Não use listas de tópicos simples. Conecte as ideias dos livros do acervo.
                     
                     Acervo: {contexto}
                     Pergunta: {pergunta}
                     """
                     
-                    with st.spinner("Analisando acervo e redigindo resposta..."):
+                    with st.spinner("Redigindo resposta profunda..."):
                         response = model.generate_content(prompt_final)
+                        # Exibição com contraste corrigido
                         st.markdown(f'<div class="ai-response-box">{response.text}</div>', unsafe_allow_html=True)
                 except Exception as e: 
                     st.error(f"Erro na conexão com o Motor 2.5: {e}")
@@ -127,14 +117,13 @@ if df is not None:
         <div class="guide-box">
             <strong>Como realizar sua pesquisa?</strong><br>
             • Procurando por um título, autor ou tema?<br>
-            • Digite o termo abaixo e clique em Executar Busca.<br>
-            • Os resultados aparecerão em cartões detalhados com referência ABNT.
+            • Digite o termo abaixo e clique em Executar Busca.
         </div>
         """, unsafe_allow_html=True)
         
         col_busca, col_btn = st.columns([3, 1])
         with col_busca:
-            busca = st.text_input("Campo de busca:", placeholder="Digite aqui...", label_visibility="collapsed")
+            busca = st.text_input("Campo de busca:", label_visibility="collapsed")
         with col_btn:
             btn_buscar = st.button("Executar Busca")
         
@@ -145,20 +134,21 @@ if df is not None:
             if not resultados.empty:
                 cols = st.columns(2)
                 for i, (index, row) in enumerate(resultados.iterrows()):
-                    # Lógica ABNT com s.d.
-                    autor_raw = str(row.get('Autor', '')).strip()
-                    titulo = str(row.get('Título', ''))
-                    editora = str(row.get('Editora', ''))
-                    data = str(row.get('Ano', '')).strip()
-                    if not data or data == "nan" or data == "": data = "s.d."
+                    # ABNT Segura (Tenta pegar Ano, se não tiver usa s.d.)
+                    titulo = row.get('Título', 'Sem Título')
+                    autor_raw = row.get('Autor', '')
+                    editora = row.get('Editora', 's.n.')
+                    # Procura 'Ano' ou 'Data' de forma flexível
+                    ano = row.get('Ano', row.get('Data', 's.d.'))
+                    if not str(ano).strip(): ano = "s.d."
 
                     if autor_raw:
-                        partes = autor_raw.split()
+                        partes = str(autor_raw).split()
                         sobrenome = partes[-1].upper()
                         nome_resto = " ".join(partes[:-1])
-                        citacao = f"{sobrenome}, {nome_resto}. **{titulo}**. {editora}, {data}."
+                        citacao = f"{sobrenome}, {nome_resto}. **{titulo}**. {editora}, {ano}."
                     else:
-                        citacao = f"AUTOR DESCONHECIDO. **{titulo}**. {editora}, {data}."
+                        citacao = f"AUTOR DESCONHECIDO. **{titulo}**. {editora}, {ano}."
 
                     with cols[i % 2]:
                         st.markdown(f"""
@@ -174,6 +164,3 @@ if df is not None:
                         """, unsafe_allow_html=True)
             else:
                 st.warning("Nenhum resultado encontrado.")
-
-else:
-    st.error("Arquivo biblioteca.xlsx não carregado.")
