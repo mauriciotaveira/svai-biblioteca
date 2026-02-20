@@ -8,6 +8,7 @@ st.set_page_config(page_title="Cine.IA - Gestão de Acervo", layout="wide")
 
 st.markdown("""
 <style>
+    /* Cartão do Livro */
     .book-card {
         background: white; padding: 18px; border-radius: 10px;
         border: 1px solid #e0e0e0; margin-bottom: 15px;
@@ -20,17 +21,30 @@ st.markdown("""
     }
     .abnt-text { font-size: 10px; color: #555; margin-top: 10px; font-style: italic; }
     
-    /* Ajuste de Contraste: Fundo Neutro com texto bem escuro */
+    /* Guia de Navegação - Fundo Neutro e Texto Escuro */
     .guide-box { 
-        background-color: #f4f4f4; 
+        background-color: #f0f2f6; 
         padding: 20px; 
         border-radius: 8px; 
         border: 1px solid #ccc; 
-        color: #1a1a1a; /* Texto quase preto para leitura clara */
+        color: #1a1a1a; 
         margin-bottom: 20px; 
-        line-height: 1.6;
     }
-    .stButton>button { background-color: #000; color: white; border-radius: 8px; width: 100%; }
+
+    /* BOTÕES: Corrigindo para o texto não sumir ao clicar */
+    .stButton>button { 
+        background-color: #000 !important; 
+        color: #ffffff !important; 
+        border-radius: 8px; 
+        width: 100%; 
+        border: none;
+        font-weight: bold;
+    }
+    .stButton>button:active, .stButton>button:focus, .stButton>button:hover {
+        background-color: #333 !important;
+        color: #ffffff !important;
+        border: none;
+    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -67,26 +81,20 @@ if df is not None:
         </div>
         """, unsafe_allow_html=True)
         
-        pergunta = st.text_area("Sua consulta:", placeholder="Ex: Qual a importância da fotografia para este acervo?")
+        pergunta = st.text_area("Sua consulta:", placeholder="Ex: Quais livros tratam de semiótica no cinema?")
         
         if st.button("Obter Resposta Técnica"):
             api_key = st.secrets.get("GOOGLE_API_KEY")
             if api_key and pergunta:
                 try:
                     genai.configure(api_key=api_key)
-                    # ATUALIZAÇÃO 2026: Usando o modelo flash mais recente (2.0+)
-                    model = genai.GenerativeModel('gemini-2.0-flash') 
-                    contexto = df[['Título', 'Autor', 'Resumo']].head(50).to_string()
+                    # Chamada para o modelo 2.5 Flash (ajustado para a API de 2026)
+                    model = genai.GenerativeModel('gemini-2.5-flash') 
+                    contexto = df[['Título', 'Autor', 'Resumo']].head(60).to_string()
                     response = model.generate_content(f"Acervo: {contexto}\nPergunta: {pergunta}")
                     st.info(response.text)
                 except Exception as e: 
-                    # Se o 2.0 falhar, tentamos o fallback para o modelo genérico 'gemini-pro'
-                    try:
-                        model = genai.GenerativeModel('gemini-pro')
-                        response = model.generate_content(f"Pergunta: {pergunta}")
-                        st.info(response.text)
-                    except:
-                        st.error(f"Erro na conexão: {e}. Verifique se o modelo 'gemini-2.0-flash' está disponível no seu console.")
+                    st.error(f"Erro na conexão com o Motor 2.5: {e}")
 
     with tab2:
         st.markdown("""
@@ -104,6 +112,7 @@ if df is not None:
         with col_btn:
             btn_buscar = st.button("Executar Busca")
         
+        # Só exibe os livros se o botão for clicado e houver texto
         if btn_buscar and busca:
             mask = df.apply(lambda r: busca.lower() in str(r.values).lower(), axis=1)
             resultados = df[mask]
@@ -112,6 +121,7 @@ if df is not None:
                 st.write(f"Encontrados: {len(resultados)} livros")
                 cols = st.columns(2)
                 for i, (index, row) in enumerate(resultados.iterrows()):
+                    # Lógica ABNT (SOBRENAME, Nome. Título. Editora, Ano/s.d.)
                     autor_raw = str(row.get('Autor', '')).strip()
                     titulo = str(row.get('Título', ''))
                     editora = str(row.get('Editora', ''))
@@ -131,7 +141,7 @@ if df is not None:
                             <div class="book-card">
                                 <h4 style="margin:0; color:#000;">{titulo}</h4>
                                 <p style="color:blue; font-size:14px; margin-top:5px;">{autor_raw}</p>
-                                <p style="font-size:13px; color:#1a1a1a;">{row.get('Resumo', '')[:250]}...</p>
+                                <p style="font-size:13px; color:#1a1a1a;">{row.get('Resumo', '')[:280]}...</p>
                                 <div class="cdd-box">
                                     📍 CDD {row.get('CDD', '---')} | Chamada: {row.get('Número de chamada', '---')}
                                 </div>
@@ -139,6 +149,6 @@ if df is not None:
                             </div>
                         """, unsafe_allow_html=True)
             else:
-                st.warning("Nenhum resultado encontrado.")
+                st.warning("Nenhum resultado encontrado para este termo.")
 else:
     st.error("Arquivo biblioteca.xlsx não carregado.")
