@@ -196,12 +196,11 @@ if df is not None:
                 except Exception as e: st.error(f"Erro: {e}")
             else: st.error("Erro API")
 
-    # --- ABA 2: BUSCA MANUAL (COM FORMATADOR ABNT) ---
+   # --- ABA 2: BUSCA MANUAL (LEITURA DIRETA DO EXCEL) ---
     with tab2:
         st.markdown("<small style='color:#666; font-style:italic;'>Ex: 'montagem', 'iluminação', 'som'</small>", unsafe_allow_html=True)
         termo = st.text_input("Busca", placeholder="Digite um termo...", label_visibility="collapsed")
         
-        # Mini-função para inverter o nome do autor para ABNT (Ex: Marcia Ortegosa -> ORTEGOSA, Marcia)
         def formatar_autor_abnt(autor):
             if not autor or str(autor).strip() == "" or str(autor).lower() == "nan": 
                 return "[Autor Desconhecido]"
@@ -224,19 +223,28 @@ if df is not None:
                     if not res.empty:
                         for _, row in res.iterrows():
                             vals = row.values
-                            # Pegar dados do Excel
+                            
+                            # Mapeamento EXATO baseado no seu PDF:
+                            # 0: Título | 1: Autor | 2: Editora | 3: Categoria | 4: Resumo
                             c_tit = str(vals[0]).strip()
                             c_aut = str(vals[1]).strip() if len(vals) > 1 else ""
+                            c_editora = str(vals[2]).strip() if len(vals) > 2 else ""
                             c_res = str(vals[4]).strip() if len(vals) > 4 else ""
                             
-                            # Transforma o autor para o padrão
+                            # Tratamento rigoroso para Editora
+                            if c_editora.lower() in ['nan', '', 'falta editora']: 
+                                c_editora = "[s.n.]"
+                                
+                            # Como Ano e Cidade não existem no seu Excel, aplicamos a regra fixa:
+                            c_ano = "[s.d.]"
+                            c_cidade = "[S.l.]"
+                            
+                            # Formata o autor
                             autor_abnt = formatar_autor_abnt(c_aut)
                             
                             # Monta a Citação Bibliográfica
-                            # Usa [S.l.] (Sem local) e [s.n.] (Sem editora) caso não tenha no seu Excel básico
-                            citacao_abnt = f"{autor_abnt}. <b>{c_tit}</b>. [S.l.]: [s.n.], [s.d.]."
+                            citacao_abnt = f"{autor_abnt}. <b>{c_tit}</b>. {c_cidade}: {c_editora}, {c_ano}."
                             
-                            # Desenha o cartão na tela de forma segura (sem aspas triplas)
                             html_card = (
                                 f'<div class="book-card">'
                                 f'<p style="margin-bottom: 10px; font-size: 15px; color: #000;">{citacao_abnt}</p>'
