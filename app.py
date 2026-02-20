@@ -8,43 +8,56 @@ st.set_page_config(page_title="Cine.IA - Gestão de Acervo", layout="wide")
 
 st.markdown("""
 <style>
-    /* Cartão do Livro */
+    /* Fundo geral da página para evitar temas automáticos ruins */
+    .stApp { background-color: #ffffff; }
+
+    /* Cartão do Livro com alto contraste */
     .book-card {
-        background: white; padding: 18px; border-radius: 10px;
-        border: 1px solid #e0e0e0; margin-bottom: 15px;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.05); min-height: 260px;
+        background: #ffffff; padding: 20px; border-radius: 12px;
+        border: 1px solid #d1d1d1; margin-bottom: 18px;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.05);
     }
-    .cdd-box {
-        background-color: #f8f9fa; padding: 8px; border-radius: 5px;
-        font-family: monospace; font-size: 12px; color: #1a1a1a;
-        border-left: 4px solid #000; margin-top: 10px;
-    }
-    .abnt-text { font-size: 10px; color: #555; margin-top: 10px; font-style: italic; }
-    
-    /* Guia de Navegação - Fundo Neutro e Texto Escuro */
-    .guide-box { 
-        background-color: #f0f2f6; 
-        padding: 20px; 
-        border-radius: 8px; 
-        border: 1px solid #ccc; 
-        color: #1a1a1a; 
-        margin-bottom: 20px; 
+    .book-card h4 { color: #000000 !important; margin: 0; }
+    .book-card p { color: #1a1a1a !important; line-height: 1.6; }
+
+    /* Caixa de Resposta da IA - FUNDO CINZA NEUTRO, FONTE ESCURA */
+    .ai-response-box {
+        background-color: #f0f2f6 !important; 
+        color: #000000 !important; 
+        padding: 25px; 
+        border-radius: 10px; 
+        border: 1px solid #ced4da;
+        line-height: 1.8;
+        font-size: 16px;
+        margin-top: 20px;
     }
 
-    /* BOTÕES: Corrigindo para o texto não sumir ao clicar */
-    .stButton>button { 
-        background-color: #000 !important; 
-        color: #ffffff !important; 
+    /* Guia de Navegação */
+    .guide-box { 
+        background-color: #f8f9fa; 
+        padding: 20px; 
         border-radius: 8px; 
-        width: 100%; 
-        border: none;
+        border: 1px solid #dee2e6; 
+        color: #212529; 
+        margin-bottom: 25px; 
+    }
+
+    /* Botões Pretos com texto Branco fixo */
+    .stButton>button { 
+        background-color: #000000 !important; 
+        color: #ffffff !important; 
         font-weight: bold;
-    }
-    .stButton>button:active, .stButton>button:focus, .stButton>button:hover {
-        background-color: #333 !important;
-        color: #ffffff !important;
         border: none;
+        padding: 10px 20px;
     }
+    
+    /* CDD e ABNT */
+    .cdd-box {
+        background-color: #e9ecef; padding: 10px; border-radius: 6px;
+        font-family: 'Courier New', Courier, monospace; font-size: 13px; color: #000;
+        border-left: 5px solid #000; margin-top: 12px;
+    }
+    .abnt-text { font-size: 11px; color: #444; margin-top: 12px; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -64,7 +77,7 @@ with st.sidebar:
     st.info("Motor: Gemini 2.5 Flash") 
     st.divider()
     if df is not None:
-        st.metric("Obras no Acervo", len(df))
+        st.metric("Total de Obras", len(df))
 
 st.title("🎬 Cine.IA - Acervo de Cinema")
 
@@ -75,24 +88,37 @@ if df is not None:
         st.markdown("""
         <div class="guide-box">
             <strong>Como navegar no Assistente:</strong><br>
-            • Deseja tirar dúvidas teóricas sobre o acervo?<br>
-            • Digite uma pergunta sobre cinema, autores ou conceitos técnicos?<br>
-            • Quer que a IA consulte a base de dados para uma resposta fundamentada?
+            • Deseja uma análise profunda baseada no acervo?<br>
+            • Digite sua pergunta sobre teoria, técnica ou história do cinema.<br>
+            • O sistema redigirá um texto técnico e fundamentado utilizando os livros disponíveis.
         </div>
         """, unsafe_allow_html=True)
         
-        pergunta = st.text_area("Sua consulta:", placeholder="Ex: Quais livros tratam de semiótica no cinema?")
+        pergunta = st.text_area("Sua consulta técnica:", height=150, placeholder="Ex: Explique o processo de montagem e sua importância narrativa...")
         
         if st.button("Obter Resposta Técnica"):
             api_key = st.secrets.get("GOOGLE_API_KEY")
             if api_key and pergunta:
                 try:
                     genai.configure(api_key=api_key)
-                    # Chamada para o modelo 2.5 Flash (ajustado para a API de 2026)
                     model = genai.GenerativeModel('gemini-2.5-flash') 
-                    contexto = df[['Título', 'Autor', 'Resumo']].head(60).to_string()
-                    response = model.generate_content(f"Acervo: {contexto}\nPergunta: {pergunta}")
-                    st.info(response.text)
+                    contexto = df[['Título', 'Autor', 'Resumo', 'Ano']].head(100).to_string()
+                    
+                    # PROMPT MELHORADO PARA EVITAR LISTAS SUPERFICIAIS
+                    prompt_final = f"""
+                    Você é um especialista em cinema e bibliotecário sênior.
+                    Baseado EXCLUSIVAMENTE no acervo abaixo, responda à pergunta do usuário.
+                    IMPORTANTE: Não faça apenas uma lista de tópicos. Escreva um texto longo, fluido, dissertativo e profundo. 
+                    Encadeie as ideias dos autores (como Eisenstein, Murch e Amiel) para explicar os conceitos.
+                    Cite as obras ao longo do texto de forma elegante.
+                    
+                    Acervo: {contexto}
+                    Pergunta: {pergunta}
+                    """
+                    
+                    with st.spinner("Analisando acervo e redigindo resposta..."):
+                        response = model.generate_content(prompt_final)
+                        st.markdown(f'<div class="ai-response-box">{response.text}</div>', unsafe_allow_html=True)
                 except Exception as e: 
                     st.error(f"Erro na conexão com o Motor 2.5: {e}")
 
@@ -100,9 +126,9 @@ if df is not None:
         st.markdown("""
         <div class="guide-box">
             <strong>Como realizar sua pesquisa?</strong><br>
-            • Procurando por um título específico?<br>
-            • Deseja filtrar as obras por nome de autor?<br>
-            • Precisa encontrar livros por palavras-chave ou temas?
+            • Procurando por um título, autor ou tema?<br>
+            • Digite o termo abaixo e clique em Executar Busca.<br>
+            • Os resultados aparecerão em cartões detalhados com referência ABNT.
         </div>
         """, unsafe_allow_html=True)
         
@@ -112,16 +138,14 @@ if df is not None:
         with col_btn:
             btn_buscar = st.button("Executar Busca")
         
-        # Só exibe os livros se o botão for clicado e houver texto
         if btn_buscar and busca:
             mask = df.apply(lambda r: busca.lower() in str(r.values).lower(), axis=1)
             resultados = df[mask]
             
             if not resultados.empty:
-                st.write(f"Encontrados: {len(resultados)} livros")
                 cols = st.columns(2)
                 for i, (index, row) in enumerate(resultados.iterrows()):
-                    # Lógica ABNT (SOBRENAME, Nome. Título. Editora, Ano/s.d.)
+                    # Lógica ABNT com s.d.
                     autor_raw = str(row.get('Autor', '')).strip()
                     titulo = str(row.get('Título', ''))
                     editora = str(row.get('Editora', ''))
@@ -139,9 +163,9 @@ if df is not None:
                     with cols[i % 2]:
                         st.markdown(f"""
                             <div class="book-card">
-                                <h4 style="margin:0; color:#000;">{titulo}</h4>
-                                <p style="color:blue; font-size:14px; margin-top:5px;">{autor_raw}</p>
-                                <p style="font-size:13px; color:#1a1a1a;">{row.get('Resumo', '')[:280]}...</p>
+                                <h4>{titulo}</h4>
+                                <p style="color:#0000FF !important; font-weight:bold;">{autor_raw}</p>
+                                <p style="font-size:14px;">{row.get('Resumo', '')}</p>
                                 <div class="cdd-box">
                                     📍 CDD {row.get('CDD', '---')} | Chamada: {row.get('Número de chamada', '---')}
                                 </div>
@@ -149,6 +173,7 @@ if df is not None:
                             </div>
                         """, unsafe_allow_html=True)
             else:
-                st.warning("Nenhum resultado encontrado para este termo.")
+                st.warning("Nenhum resultado encontrado.")
+
 else:
     st.error("Arquivo biblioteca.xlsx não carregado.")
