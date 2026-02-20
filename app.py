@@ -147,7 +147,6 @@ if df is not None:
         if st.button("Pedir Orientação"):
             if modelo_escolhido and api_key:
                 try:
-                    # --- AQUI ESTÁ A MÁGICA DO RANKING (Igual ao Constitucional) ---
                     # 1. Normaliza e pega palavras-chave
                     pgt_norm = normalizar_texto(pgt)
                     ignorar = ['como', 'fazer', 'o', 'que', 'e', 'um', 'uma', 'de', 'do', 'da', 'para', 'com', 'livro', 'sobre']
@@ -168,19 +167,28 @@ if df is not None:
                     
                     # 4. Envia para a IA
                     model = genai.GenerativeModel(modelo_escolhido)
+                    
+                    # ==============================================================
+                    # O NOVO PROMPT (COM REGRAS DE BIBLIOTECONOMIA / ABNT)
+                    # ==============================================================
                     prompt = f"""
-                    Atue como um Especialista em Cinema e Produção (Prático e Teórico).
+                    Atue como o Cine.IA, um Especialista em Cinema e Produção, mas operando com o rigor acadêmico de um Bibliotecário Sênior.
                     Você tem acesso a este ACERVO DE LIVROS selecionados (os mais relevantes para a pergunta estão no topo):
                     {ctx}
                     
                     Pergunta do Usuário: {pgt}
                     
                     Instruções:
-                    1. Responda a dúvida técnica de forma didática.
-                    2. CITE OS LIVROS DO ACERVO que ajudam nesse tema. Se houver um livro específico sobre o assunto no topo da lista, dê destaque a ele.
-                    3. Se a pergunta for sobre um termo específico (ex: "Noir"), explique o termo usando o livro que fala dele.
-                    """
+                    1. Responda a dúvida técnica de forma didática e clara.
+                    2. CITE OS LIVROS DO ACERVO que ajudam nesse tema.
+                    3. OBRIGATORIAMENTE, crie uma seção no final chamada "REFERÊNCIAS" e liste todas as obras mencionadas usando o rigoroso padrão ABNT (Associação Brasileira de Normas Técnicas).
                     
+                    REGRAS RÍGIDAS DE FORMATAÇÃO (BIBLIOTECONOMIA / ABNT):
+                    - Para Filmes/Audiovisual: TÍTULO DO FILME (em letras maiúsculas). Direção: Nome do Diretor. Produção: Nome do Produtor ou Estúdio. Local (País): Produtora, Ano de lançamento.
+                    - Para Livros: SOBRENOME DO AUTOR (em maiúsculas), Nome do Autor. Título da obra: subtítulo. Número da edição. Local de publicação (Cidade): Editora, Ano. (Se faltarem dados de cidade ou ano no acervo fornecido, utilize as convenções [S.l.] ou [s.d.]).
+                    """
+                    # ==============================================================
+
                     with st.spinner("Consultando biblioteca técnica..."):
                         response = model.generate_content(prompt)
                         st.markdown(f"""<div class="ai-card"><b>🤖 Resposta:</b><br>{response.text}</div>""", unsafe_allow_html=True)
@@ -212,10 +220,3 @@ if df is not None:
                             
                             st.markdown(f"""<div class="book-card">
                                 <b>{c_tit}</b><br>
-                                <small style="color:#0066cc">{c_aut}</small><br>
-                                <span style="font-size:13px">{c_res}</span>
-                            </div>""", unsafe_allow_html=True)
-                    else: st.info("Nada encontrado.")
-                else: st.warning("Digite um termo mais específico.")
-
-else: st.error("Excel não carregado.")
