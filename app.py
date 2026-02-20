@@ -75,7 +75,7 @@ if df is not None:
     tab1, tab2 = st.tabs(["🤖 Assistente de Produção", "🔎 Buscar Livros"])
 
     # ==========================================
-    # ABA 1: ASSISTENTE COM BUSCA INTELIGENTE
+    # ABA 1: ASSISTENTE COM RANKING DE RELEVÂNCIA
     # ==========================================
     with tab1:
         st.markdown("""
@@ -96,42 +96,48 @@ if df is not None:
                     genai.configure(api_key=api_key)
                     model = genai.GenerativeModel('gemini-2.5-flash') 
                     
-                    # --- FILTRO INTELIGENTE PARA NÃO ESTOURAR A COTA ---
-                    # 1. Pega as palavras da sua pergunta maiores que 3 letras
-                    palavras_chave = [p.lower() for p in pergunta.replace("?", "").replace(",", "").split() if len(p) > 3]
+                    # --- FILTRO POR RANKING (A SOLUÇÃO PARA ACHAR A ORTEGOSA) ---
+                    # 1. Ignora palavras comuns e foca nas chaves reais
+                    stop_words = ['sobre', 'como', 'qual', 'para', 'pelo', 'esse', 'este', 'isso', 'fale', 'livro']
+                    palavras_chave = [p.lower() for p in pergunta.replace("?", "").replace(",", "").split() if len(p) > 3 and p.lower() not in stop_words]
                     
-                    # 2. Busca no Excel inteiro apenas os livros que tenham essas palavras
+                    df_relevante = df.copy()
+                    
+                    # 2. Cria um sistema de pontuação: quanto mais a palavra aparece, maior a nota do livro
                     if palavras_chave:
-                        mask = df.apply(lambda r: any(p in str(r.values).lower() for p in palavras_chave), axis=1)
-                        df_relevante = df[mask]
+                        df_relevante['Pontuacao'] = df_relevante.apply(
+                            lambda r: sum(str(r.values).lower().count(p) for p in palavras_chave), axis=1
+                        )
+                        # Filtra e ordena do maior para o menor
+                        df_relevante = df_relevante[df_relevante['Pontuacao'] > 0].sort_values(by='Pontuacao', ascending=False)
                     else:
-                        df_relevante = df.head(0)
+                        df_relevante = df_relevante.head(0)
                     
-                    # 3. Se achou poucos, completa com os primeiros para dar volume
+                    # 3. Completa se necessário para não faltar contexto
                     if len(df_relevante) < 5:
-                        df_relevante = pd.concat([df_relevante, df.head(15)]).drop_duplicates()
+                        df_relevante = pd.concat([df_relevante, df.head(15)]).drop_duplicates(subset=['Título'])
                     
-                    # 4. Limita a 20 obras altamente focadas para mandar para a IA
+                    # 4. Pega os 20 melhores livros rankeados
                     colunas_disponiveis = [c for c in ['Título', 'Autor', 'Resumo', 'Editora', 'Ano'] if c in df.columns]
                     contexto = df_relevante[colunas_disponiveis].head(20).to_string()
                     
-                    # --- O PROMPT MESTRE ---
+                    # --- PROMPT ATUALIZADO ---
                     prompt_final = f"""
                     Você é um especialista em cinema. Responda à pergunta do usuário baseado APENAS no acervo fornecido abaixo.
                     
                     DIRETRIZES IMPORTANTES:
-                    1. ESTILO E TOM: Seja elegante, acessível e direto. Evite jargões excessivamente acadêmicos ou saudações pedantes (nunca use "Caríssimo pesquisador" ou similar).
-                    2. ESTRUTURA: Escreva um texto longo, fluido, dissertativo e profundo. Discorra sobre o tema conectando as ideias dos autores presentes no acervo. NÃO faça listas de tópicos.
-                    3. PRIORIDADE: Foque primeiro nas obras que tratam diretamente do assunto solicitado (ex: se o usuário perguntar sobre Film Noir, use as obras que citam isso diretamente antes de teorizar).
+                    1. ESTILO E TOM: Seja elegante, claro e direto. Evite jargões excessivamente acadêmicos ou saudações pedantes (não use "Caríssimo", etc.).
+                    2. ESTRUTURA: Escreva um texto longo, fluido, dissertativo e profundo. Conecte as ideias dos autores presentes no acervo. NÃO faça listas de tópicos.
+                    3. PRIORIDADE ABSOLUTA: O acervo abaixo já foi filtrado por relevância. As primeiras obras da lista são as mais importantes para o tema. Certifique-se de utilizá-las e citá-las no texto de forma prioritária.
                     4. REFERÊNCIAS ABNT: É OBRIGATÓRIO que o último elemento da sua resposta seja uma seção chamada "Referências Citadas", listando TODAS as obras que você usou no texto no formato ABNT (SOBRENOME, Nome. Título. Editora, Ano.). Se o ano não existir, use s.d.
                     
-                    Acervo selecionado para esta pergunta: 
+                    Acervo selecionado para esta pergunta (ordenado por relevância): 
                     {contexto}
                     
                     Pergunta: {pergunta}
                     """
                     
-                    with st.spinner("Mapeando acervo e redigindo ensaio..."):
+                    with st.spinner("Mapeando as obras mais relevantes e redigindo ensaio..."):
                         response = model.generate_content(prompt_final)
                         st.markdown(f'<div class="ai-response-box">{response.text}</div>', unsafe_allow_html=True)
                 except Exception as e: 
